@@ -12,8 +12,8 @@ import numpy as np
 
 
 # import Sistema_Cordut.Risk_Module as risk
-from PipeMA_System import main_pipe_normas as sempiric
-from PipeMA_System import Risk_Module as risk
+from python_scripts import main_pipe_normas as sempiric
+from python_scripts import Risk_Module as risk
 # import Sistema_Cordut.main_pipe_normas as semi_empiric
 
 # import sys
@@ -26,6 +26,7 @@ from PipeMA_System import Risk_Module as risk
 
 relib_ana = 0
 
+Plot_Map = 1
 plot_seaborn = 1
 time_variable=0
 plotson = 0
@@ -46,14 +47,18 @@ dates = [2006, 2014,  2017]
 
 
 OD = 32*25.4
+
 min_CGR = 0.1
 max_CGR = 1.2
+
+# future assessment 
+dt = 5 # years
 
 debugon = False
 XY0 = []
 
-class struct_data:
-        pass
+# class struct_data:
+#         pass
 
 # Inspection = []
 
@@ -76,9 +81,10 @@ Z0 = XY0[2]
 df_Def = Inspi.df_Def
 if debugon: print('UTM coordinate: ', df_Def.gridzone_name.iloc[0], ' S ',df_Def.X_name.iloc[0], df_Def.Y_name.iloc[0])
 
-##############
-# MAPs
-# Insps[-1].plot_map('Pipe_Map_2')
+if Plot_Map:
+    ##############
+    # MAPs
+    Insps[-1].plot_map('Pipe_Map_2')
 
 ij=[0,1]
 match_Ins0, match_Ins1 = matching(Insps, ij, debugon = False)
@@ -99,11 +105,8 @@ for i in range(len(Insps)):
 ##########################################################################
 #############################################
 # future update
+Insps[ij[-1]].Future_def(Insps[ij[-1]], CGRp, dt=5, debugon = False)
 
-dt = 5
-Inspection = Ir.Pipetally(spreadsheet_names[ij[-1]]+'future', dates[-1] + dt, OD, surce_dir, future=True)
-Inspection.Future_def(Insps[ij[-1]], CGRp, dt=5, debugon = False)
-Insps.append(Inspection)
 
 
 # Ir.X

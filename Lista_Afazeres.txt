@@ -1,0 +1,23 @@
+
+Ler planilhas
+(pandas?)
+ - Padrões
+
+Calcular ERF (ASME B31g, BS 7910)
+
+Plotar porrada de coisas (ver relatorio q nao temos)
+histogra
+
+ver Cluster de defeitos
+
+ver MEF axissimetrico
+
+-----------------------------------------------------------------------
+taxa de corrosão:
+ - Variaveis utilizaveis (posição georeferenciada + junta+posisao relativa)
+ 
+Avaliação futura
+(predizer proxima inspeção)
+
+Relatorio:
+ 

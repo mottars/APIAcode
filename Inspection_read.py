@@ -9,9 +9,9 @@ import pandas as pd
 import numpy as np
 import os
 import sys
-from inspection_tools import get_spreadsheet_labels, pre_proc_df
+from inspection_tools import get_spreadsheet_labels, pre_proc_df, find_clusters
 # import PipeMA_System.main_pipe_normas as normas
-from PipeMA_System import main_pipe_normas
+from python_scripts import main_pipe_normas
 
 # MAPS
 import folium 
@@ -19,7 +19,7 @@ import utm
 import geopandas as geopd
 import branca.colormap as cm
 
-from inspection_tools import  inspection_match, CGR_Comput, find_clusters, joints_match, plot_seaborns, compare_ERF_ProbF
+   
 
 
 class Pipetally:
@@ -109,20 +109,16 @@ class Pipetally:
         
         #############################################
         
-    def Future_def(self, insp, CGRp, dt=5, debugon = False):
+    def Future_def(self, CGRp, dt=5, debugon = False):
         ##########################################################################
         ##########################################################################
-        #############################################
         # future update
         
+        self.future = True
+        self.df_Fut_Def = self.df_Def.copy()
+        self.df_Fut_Def.d= self.df_Def.d.values + dt*CGRp*100
         
-        i_def = insp.i_def
-        df_Def = insp.df_Def
-        self.i_def = i_def
-        self.df_Def = df_Def.copy()
-        
-        self.df_Def.d= df_Def.d.values + dt*CGRp*100
-        
+        #############################################
         
     ##############
     # MAPs
@@ -138,7 +134,7 @@ class Pipetally:
         linear = cm.LinearColormap(["green", "yellow", "red"], vmin=ERF_min, vmax=ERF_max)
         
         df = self.df_joints
-        LL=utm.to_latlon(df.X.to_numpy(),df.Y.to_numpy(),df.gridzone.iloc[0],self.grid_letter)
+        LL=utm.to_latlon(df.X.to_numpy(),df.Y.to_numpy(),df.gridzone.iloc[0],self.grid_letter)            
         LL_mean = np.mean(LL,1)
         m = folium.Map(LL_mean, zoom_starts = 5)
         
@@ -171,20 +167,19 @@ class Pipetally:
             
             
             LL=utm.to_latlon(df.X.to_numpy(),df.Y.to_numpy(),df.gridzone.iloc[0],self.grid_letter)
+                
+            # ................................... geopandas
             df['Lat'] = LL[0]
             df['Long'] = LL[1]
-                
             gdf = geopd.GeoDataFrame(
                 df, geometry=geopd.points_from_xy(df.Long, df.Lat), crs="EPSG:4326"
             )
-            # ................................... geopandas
-            
-            
+                    
             
             m2 = folium.Map(location=[(gdf.geometry.y).mean(), (gdf.geometry.x).mean()], zoom_start=4)
             folium.GeoJson(gdf, name="GeoData").add_to(m2)
-            m2.save('Pipi_Defects2.html')
-            print("saved Pipi_Defects 2")
+            m2.save('Pipi_Defects_geopandas_test2.html')
+            print("saved Pipi_Defects_geopandas_test2")
             
             # gdf.plot(ax=ax, color="red")
             # plt.show()

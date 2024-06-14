@@ -18,7 +18,7 @@ from timeit import default_timer as timer
 #import seaborn as sns
 # insert at 1, 0 is the script path (or '' in REPL)
 #sys.path.insert(1, 'C:/Users/Adriano/Google Drive/UFPE/Carreira.Acadêmica/Doutorado/code_aster_dutos')
-from PipeMA_System.rbp_aid_funcs import rbp_from_3d
+from python_scripts.rbp_aid_funcs import rbp_from_3d
 
 
 # In[]
