@@ -1,0 +1,456 @@
+# -*- coding: utf-8 -*-
+#%reset
+
+# from inspection_tools import get_spreadsheet_labels, pre_proc_df, inspection_match, CGR_Comput, find_clusters
+from inspection_tools import   CGR_Comput, plot_seaborns, compare_ERF_ProbF, matching
+import Inspection_read as Ir
+# import pandas as pd
+import os
+import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import numpy as np
+
+
+# import Sistema_Cordut.Risk_Module as risk
+from PipeMA_System import main_pipe_normas as sempiric
+from PipeMA_System import Risk_Module as risk
+# import Sistema_Cordut.main_pipe_normas as semi_empiric
+
+# import sys
+# import seaborn as sns
+# import itertools
+# import matplotlib as mpl
+# import python_scripts.main_pipe_normas as normas
+
+
+
+relib_ana = 0
+
+plot_seaborn = 1
+time_variable=0
+plotson = 0
+plot_CGR = 0
+plot_match = 0
+plot_ispecs = 1
+plot_hight = 1
+plot_hist = 1
+test_Z = 0
+
+
+surce_dir = os.curdir+os.sep+'Files'
+
+spreadsheet_names = ['PEN-SCA 2006 resumo.csv',
+                    'PEN-SCA 2014 resumo.csv',
+                    'PEN-SCA 2017 resumo.xlsx']
+dates = [2006, 2014,  2017]
+
+
+OD = 32*25.4
+min_CGR = 0.1
+max_CGR = 1.2
+
+debugon = False
+XY0 = []
+
+class struct_data:
+        pass
+
+# Inspection = []
+
+#############################################
+#1st
+col_names=[]
+Insps = []
+for i_insp in range(len(spreadsheet_names)):
+    Inspi = Ir.Pipetally(spreadsheet_names[i_insp], dates[i_insp], OD, surce_dir)
+    Insps.append(Inspi)
+    XY0, coln = Insps[i_insp].read(XY0=XY0, debugon=debugon)
+    col_names.append(coln)
+
+print('N of defects: ', [len(i.df_Def) for i in Insps])
+
+X0 = XY0[0]
+Y0 = XY0[1]
+Z0 = XY0[2]
+# depth_name, def_len_name , def_w_name,t_name , Y_name , X_name  ,H_name , gridzone_name , tube_num_name , tube_len_name , weld_dist_name , Z_pos_name , circ_pos_name , surf_pos_name , ERF_name , feature_name = col_names
+df_Def = Inspi.df_Def
+if debugon: print('UTM coordinate: ', df_Def.gridzone_name.iloc[0], ' S ',df_Def.X_name.iloc[0], df_Def.Y_name.iloc[0])
+
+##############
+# MAPs
+# Insps[-1].plot_map('Pipe_Map_2')
+
+ij=[0,1]
+match_Ins0, match_Ins1 = matching(Insps, ij, debugon = False)
+
+CGR, CGRp = CGR_Comput(Insps,ij, match_Ins0, match_Ins1, min_CGR=min_CGR, max_CGR=max_CGR)
+
+print('Defect Matching occurence: ', len(match_Ins1), '/',len(Insps[ij[1]].df_Def))
+
+Insps[ij[-1]].add_CGR(CGR, CGRp, min_CGR , max_CGR)
+
+Insps[-1].Identify_Cluster( col_names , debugon = False)
+
+#Save DF
+for i in range(len(Insps)):
+    Insps[i].df_Def.to_csv('./DataFrames/Defect2_DF_Final_' + str(i) + '_' + str(Insps[i].date) + '.csv')
+
+#########################################################################
+##########################################################################
+#############################################
+# future update
+
+dt = 5
+Inspection = Ir.Pipetally(spreadsheet_names[ij[-1]]+'future', dates[-1] + dt, OD, surce_dir, future=True)
+Inspection.Future_def(Insps[ij[-1]], CGRp, dt=5, debugon = False)
+Insps.append(Inspection)
+
+
+# Ir.X
+
+
+
+############################################################
+##########################################################################
+#% Defect assessment and  Future Assessment
+##########################################################################
+
+# API 5L X70
+sige = 485 
+sigu = 565 
+MAOP = 100 #bar
+n_inspection = len(Insps)
+for i in range(n_inspection):
+
+    # Meters
+    D  = Insps[i].OD/1000
+    L  = Insps[i].df_Def.L.values/1000
+    t  = Insps[i].df_Def.t.values/1000
+    dp = Insps[i].df_Def.d.values/100
+    d  = dp*t
+    
+    # thicks=[]
+    
+    MSOPbar = Ir.comput_MSOP(D,t,dp,L,sige,sigu, unit = 'MPa')
+    
+    # Ndef = len(d)
+    # PFs = np.zeros(Ndef)
+    # for i in range(Ndef):
+    #     PFs[i] = normas.b31g(D,t[i],L[i],d[i],sige,sigu,thicks)
+    
+    # # Insps[-1].df_Def['PFs'] = PFs
+    
+    # MSOPbar = PFs*10*.72
+    Insps[i].df_Def['MSOPbar'] = MSOPbar
+    Insps[i].df_Def['ERF'] = MAOP/MSOPbar
+    
+    dp_max, Llim = Ir.def_critical_limits(dp,t,D,sige, MAOP)
+    
+    Insps[i].df_Def['L max'] = Llim*1000
+    Insps[i].df_Def['Max Safety d [%]'] = dp_max
+
+###################################
+# Printing Critical Defects: ERF>0.99
+print_critical = 0
+if print_critical:
+    print('Critical Defects: ERF>0.99')
+    id_crit = np.where(MAOP/MSOPbar>0.99)
+    for i in id_crit[0]:
+        print(Insps[-1].df_Def.iloc[i])
+
+
+i=len(Insps)
+df_Def.to_csv('./DataFrames/Defect_DF_Insp_' + str(i) + '_' + str(Insps[i-1].date))
+
+
+
+
+
+############################################################
+# Reliability Analysis
+if relib_ana==1:
+
+    case = sempiric.modifiedb31g
+    
+    n_Insps = len(Insps)
+    
+    # Inspection Tool DATA:
+    Insp_type=[0,0] ## MFL=0, UT=1
+    
+    #Accuracy, relative
+    # Accuracy_rel_abs= [1,1]
+    Accuracy_rel_abs= [1,0]
+    # insp_type==0:  MFL
+    #   acc_rel = [0.05*t,0.1*t,0.2*t]
+    
+    # insp_type==1:  UT
+    #   acc_abs = [0.25,0.5,1.]
+    
+    #Confidence Level 
+    # Confidence=[0.8, 0.9]
+    Confidence=[0.9, 0.9]
+    
+    Dates=[Insps[i].date for i in range(n_Insps)]
+    d=[]
+    for i in range(n_Insps):
+        Insps[i].MPP=[]
+        MAOP = Insps[i].MAOP
+        sige = Insps[i].sige
+        sigu = Insps[i].sigu
+        # meters
+        D    = Insps[i].OD/1000
+        L    = Insps[i].df_Def.L.values/1000
+        t    = Insps[i].df_Def.t.values/1000
+        dp   = Insps[i].df_Def.d.values/100
+        # d    = dp*t
+        Ndef = len(dp)
+        idx=Insps[i].df_Def.index
+        PFs = np.zeros(Ndef)
+        for j in range(Ndef):
+            if i==n_Insps-1:
+                # FUTURE RELIABILITY ANALYSIS #############
+                PF_form, beta, MPP, Pd, ii, alpha, StDtd = risk.Reliability_pipe(D, t[j], L[j], dp[j],
+                    sige, sigu, Pd=MAOP, method=case , insp_type=Insp_type,
+                    acc_rel_abs=Accuracy_rel_abs, conf=Confidence,
+                    future_assessment=True, dates=Dates)
+    
+            else:
+                PF_form, beta, MPP, Pd, ii, alpha, StDtd = risk.Reliability_pipe(D, t[j], L[j], dp[j] ,
+                    sige, sigu, Pd=MAOP, method=case , insp_type=Insp_type[i],
+                    acc_rel_abs=Accuracy_rel_abs[i], conf=Confidence[i])
+    
+            Insps[i].df_Def.loc[idx[j],'PF_form']=PF_form
+            Insps[i].df_Def.loc[idx[j],'beta'] = beta
+            Insps[i].MPP.append((MPP))
+            Insps[i].df_Def.loc[idx[j],'Pd'] = Pd
+            Insps[i].df_Def.loc[idx[j],'FORM Iterations'] = ii
+            # Insps[i].alpha.append((alpha))
+            # Insps[i].df_Def.loc[idx[j],'alpha'] = alpha
+            Insps[i].df_Def.loc[idx[j],'StD d'] = StDtd
+    
+    ############################################################
+    ############################################################
+    #% Reliability plots#
+    # for i in range(n_Insps):
+        
+    #     plt.figure()
+    #     plt.plot(Insps[i].df_Def['PF_form'], Insps[i].df_Def['ERF'],'.')
+    #     plt.xlabel('PF_form')
+    #     plt.xscale('log')
+    #     plt.ylabel('EFR')
+    #     plt.title('Insps ' + str(i))
+        
+    #     plt.figure()
+    #     plt.plot(Insps[i].df_Def['beta'], Insps[i].df_Def['ERF'],'.')
+    #     plt.xlabel('beta')
+    #     plt.ylabel('EFR')
+    #     plt.title('Insps ' + str(i))
+    
+    print('Form convergence problems:')
+    for i in range(n_Insps):
+        print(np.sum(np.isnan(Insps[i].df_Def['beta'])))
+
+
+       
+
+    compare_ERF_ProbF(Insps)
+############################################################
+############################################################
+# PLOTS ###
+
+
+if plot_seaborn:
+    # plot_seaborns(Inspection,  col_names,ij =[0,1], XY0=[], min_joint_dist = 0.5):
+    plot_seaborns(Insps, col_names,ij)
+    # print ("end")
+
+if time_variable:
+    ############################################################
+    # Time dependent ERF
+    T = 10 #anos
+    dp0 = df_Def.d.values/100
+    dts = np.linspace(0,T,T*4+1)
+    nts = len(dts)
+    ndef = len(dp0)
+    
+    ERFs = np.zeros([ndef,nts])
+    Nfail = np.zeros(nts)
+    plt.figure()
+    for i in range(len(dts)):
+        dp = dp0 + dts[i]*CGRp
+        MSOPbar = Ir.comput_MSOP(D,t,dp,L,sige,sigu, unit = 'bars')
+        ERFi = MAOP/MSOPbar
+        ERFs[:,i] =  ERFi
+        Nfail[i] = sum(ERFi>0.99)
+    
+    plt.figure()
+    plt.plot(dts,ERFs.transpose())
+    plt.plot([0,T],[1,1])
+    plt.ylim(0.9,1.05)
+    plt.xlabel('Time Interval (y)')
+    plt.ylabel('EFR')
+    
+    plt.figure()
+    plt.bar(dts,Nfail)
+    plt.xlabel('Time Interval (y)')
+    plt.ylabel('Number of critical points (ERF>ERF_crit)')
+
+
+if plotson:    
+    
+    #############################################
+    #############################################
+    #############################################
+    # PLOTS
+    #############################################
+    #tubes positioning
+    if test_Z:
+        tube_X = list(Insps[0].df_joints.X)
+        tube_Y = list(Insps[0].df_joints.Y)
+        n_tubes = len(Insps[0].i_joints)
+        # Comput Real_Z
+        tube_len = np.zeros(n_tubes)
+        for i in range(n_tubes-1):
+            dx = tube_X[i+1]-tube_X[i]
+            dy = tube_Y[i+1]-tube_Y[i]
+            tube_len[i] = (dx**2+dy**2)**.5
+        
+        # Testing odometer
+        Z_tube = list(Insps[0].df_joints.Z)
+        tube_lenZ = np.zeros(n_tubes)
+        for i in range(n_tubes-1):
+            tube_lenZ[i] = Z_tube[i+1]-Z_tube[i]
+            
+        # Not in spreadsheet
+        tube_len[-1] = Insps[0].df_joints.tube_len.iloc[-1]
+        tube_lenZ[-1]= Insps[0].df_joints.tube_len.iloc[-1]
+        S_pos = np.cumsum(tube_len)
+        Insps[0].i_joints.pop(n_tubes-1)
+        n_tubes = len(Insps[0].i_joints)
+        if debugon: print('n_Tubes: ',n_tubes)
+        if debugon: print('Tubes: ',len(tube_len))
+        # for i in i_joints:
+        #     if not np.isnan(df[tube_num_name][i]):
+        #         i_joints.append(i)
+        
+        
+        plt.figure()
+        plt.plot(S_pos,Insps[0].df_joints.tube_len-tube_lenZ,'x',c='k')
+        plt.plot(S_pos,tube_len-tube_lenZ,'+',c='r')
+        plt.plot(S_pos,tube_lenZ-tube_lenZ,'.', c='b')
+        
+        plt.title(['tubes length dif GPSxZ',Insps[0].file_name])
+        plt.xlabel('S dist')
+        plt.ylabel('diff')
+    #############################################
+    
+    if plot_hist:
+        plt.figure()
+        plt.hist(Insps[0].df_Def.d,bins=40)
+        plt.title('Depth Distribution')
+        plt.xlabel('depth')
+        plt.ylabel('frequence')
+    
+    if plot_hight:
+        df = Insps[0].df_Def
+        plt.figure()
+        ax = plt.subplot()
+        im = plt.scatter(df.X - df.X[0], df.Y - df.Y[0],marker='.',c=df.H)
+        plt.title(['Features position ',Insps[0].file_name])
+        plt.xlabel('Easting')
+        plt.ylabel('Norting')
+        # create an axes on the right side of ax. The width of cax will be 5%
+        # of ax and the padding between cax and ax will be fixed at 0.05 inch.
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+        plt.colorbar(im, cax=cax)
+    
+    if plot_ispecs:
+        markers = ['o','+', 'x', '>', '.', 's']
+        fig=plt.figure()
+        ax = plt.subplot()
+        X = Insps[0].df_joints.X - X0
+        Y = Insps[0].df_joints.Y - Y0
+        plt.plot(X, Y)
+        for i in range(n_Insps):
+            print(Insps[i].file_name)
+            X = Insps[i].df_Def.X - X0
+            Y = Insps[i].df_Def.Y - Y0
+            Z = Insps[i].df_Def.d
+            label = Insps[i].file_name
+            im = plt.scatter(X, Y,marker=markers[i],c=Z, s=(n_Insps-i)*60, label=label)
+        plt.legend()
+        plt.title(['Metal Loss position '])
+        plt.xlabel('Easting')
+        plt.ylabel('Norting')
+        # create an axes on the right side of ax. The width of cax will be 5%
+        # of ax and the padding between cax and ax will be fixed at 0.05 inch.
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+        plt.colorbar(im, cax=cax)
+    #plt.figure()
+    
+    ##########################################################
+    # plot_match
+    if plot_match:
+        markers = ['o','+', 'x', '>', '.', 's']
+        fig=plt.figure()
+        ax = plt.subplot()
+        X = Insps[0].df_joints.X - X0
+        Y = Insps[0].df_joints.Y - Y0
+        plt.plot(X, Y)
+        for i in range(n_Insps-1):
+            print(Insps[i].file_name)
+            ####################### 
+            # Insps 0
+            X = Insps[i].df_Def.X.iloc[match_Ins0] - X0
+            Y = Insps[i].df_Def.Y.iloc[match_Ins0] - Y0
+            label = Insps[i].file_name
+            plt.scatter(X, Y,marker=markers[i],edgecolors='r', facecolors='none', s=80, label=label)
+            
+            ####################### 
+            # Insps 1
+            X = Insps[i+1].df_Def.X.iloc[match_Ins1] - X0
+            Y = Insps[i+1].df_Def.Y.iloc[match_Ins1] - Y0
+            label = Insps[i+1].file_name
+            plt.plot(X, Y,marker=markers[i+1], linewidth=0, label=label, color='k')
+            
+            # X = Insps[i+1].df_Def.X - X0
+            # Y = Insps[i+1].df_Def.Y - Y0
+            # im = plt.scatter(X, Y, c = CGR, s=50, label='CGR')
+            
+            ####################### 
+            
+        plt.legend()
+        plt.title(['Match position '])
+        plt.xlabel('Easting')
+        plt.ylabel('Norting')
+        
+        # divider = make_axes_locatable(ax)
+        # cax = divider.append_axes("right", size="5%", pad=0.05)
+        # plt.colorbar(im, cax=cax)  
+      
+    
+    if plot_CGR:
+        markers = ['o','+', 'x', '>', '.', 's']
+        fig=plt.figure()
+        ax = plt.subplot()
+        X = Insps[0].df_joints.X - X0
+        Y = Insps[0].df_joints.Y - Y0
+        plt.plot(X, Y)
+        for i in range(n_Insps-1):        
+            X = Insps[i+1].df_Def.X - X0
+            Y = Insps[i+1].df_Def.Y - Y0
+            im = plt.scatter(X, Y, c = CGR, s=50, label='CGR', facecolors='none',marker='o' )
+            
+            ####################### 
+            
+        plt.legend()
+        plt.title(['CGR '])
+        plt.xlabel('Easting')
+        plt.ylabel('Norting')
+        
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+        plt.colorbar(im, cax=cax)  
+    
