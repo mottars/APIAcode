@@ -13,10 +13,12 @@ from collections import Counter
 import matplotlib.cm as mcm
 
 
+
 #############################################
 # Match between joint position using LCRS algorithm
 # Monotonic_Real_Sequences_Intersection
 from Algorithms import MRSI_3D
+from python_scripts import main_pipe_normas
 
 debugon = False
 def get_spreadsheet_labels(Labels):
@@ -328,23 +330,22 @@ def matching(Insps, ij=[0,1], debugon = False):
     ########### MATCHING PROCESS ################
     #############################################
     #############################################
-    print('# Joints Geopositioning Analysis... ')
-    pp = joints_match(Insps, ij)
+    print('# Joints Geopositioning Match Analysis... ')
+    pp, poss = joints_match(Insps, ij, debugon= debugon)
     
-    # Print .csv Joint Tables
-    for i in ij:
-        Insps[i].df_joints['Match'] =pp[i]
-        Insps[i].df_joints.to_csv('./DataFrames/Joint_DF_Insp_' + str(i) + '_' + str(Insps[i].date) + '.csv')
-        print(str(i) + ', ./DataFrames/Joint_DF_Insp_' + str(i) + '_' + str(Insps[i].date) + '.csv')
+    # Add Joint Match Column
+    for i in [0,1]:
+        Insps[ij[i]].df_joints['Match'] =pp[i]
+        Insps[ij[i]].joint_math = poss
     
     #############################################
     print('# Defect matchin process...')
-    match_Ins0, match_Ins1 = inspection_match(Insps, ij,tol = 0.1)
+    match_Ins0, match_Ins1 = defects_match(Insps, ij,tol = 0.1, debugon= debugon)
     
     return match_Ins0, match_Ins1
     
 
-def joints_match(Inspection, ij=[0,1], XY0=[], tol = 5, debugon=False):
+def joints_match(Inspection, ij=[0,1], XY0=[], tol = 50, debugon=False):
     
     # depth_col, def_len_col , def_w_col,t_col , Y_col , X_col  ,H_col , gridzone_col , tube_num_col , tube_len_col , weld_dist_col , Z_pos_col , circ_pos_col , surf_pos_col , ERF_col , feature_col = col_names 
     
@@ -379,13 +380,15 @@ def joints_match(Inspection, ij=[0,1], XY0=[], tol = 5, debugon=False):
     B=np.array([[x1[i],y1[i],z1[i]] for i in range(len(x1)) ])
     
     #Monotonic_Real_Sequence_Intersection
+    print('Monotonic_Real_Sequence_Intersection Algorithm for joints matching in progress...')
     p, p0, p1 = MRSI_3D(A, B,tol)
-    
+    print('MRSI finished ')    
     
     # P0 = [il[0] for il in posa]
     # P1 = [il[1] for il in posa]
     
     pp=[p0,p1]
+    
     
     if debugon:
         # Mean intersect position
@@ -401,9 +404,9 @@ def joints_match(Inspection, ij=[0,1], XY0=[], tol = 5, debugon=False):
         print('Joints Match Bias (X,Y,Z): ', np.mean(diff_match,axis=0))
         print('Mean Joints Match Error (X,Y,Z): ', np.mean(abs(diff_match),axis=0))
     
-    return pp
+    return pp, p
     
-def inspection_match(Inspection, ij=[0,1], XY0=[], tol = 0.1, debugon=False):
+def defects_match(Inspection, ij=[0,1], XY0=[], tol = 0.1, debugon=False):
     #Match beetwen 2 inspections (0 and 1) 
     
     # depth_col, def_len_col , def_w_col,t_col , Y_col , X_col  ,H_col , gridzone_col , tube_num_col , tube_len_col , weld_dist_col , Z_pos_col , circ_pos_col , surf_pos_col , ERF_col , feature_col = col_names 
@@ -430,10 +433,12 @@ def inspection_match(Inspection, ij=[0,1], XY0=[], tol = 0.1, debugon=False):
         # Posicao das juntas anteriores de cada defeito
         tub_def = Inspection[i].df_Def.tube_num
         n0 = len(tub_def)
+        if debugon: print("N tub_def: ", n0)
         
         #loop on the defects
         for j in range(n0):
             
+            if debugon: print("N: ", j)
             # Distance def to joint 0
             J0 = tub_def.iloc[j]
             Zdef0 = Inspection[i].df_Def.Z_pos.iloc[j]
@@ -450,6 +455,9 @@ def inspection_match(Inspection, ij=[0,1], XY0=[], tol = 0.1, debugon=False):
             mj0=jointi0['Match'].values
             if mj0[0]==0:
                 if debugon: print( 'mj0[0]==0 ?????????', mj0)
+                
+            if mj0[0]==-1:
+                if debugon: print( 'mj0[0]==-1 ?????????, J0: ', mj0, J0)
 
             # Find joint in 2nd Inspection
             join_in_df1 = Inspection[i+1].df_joints.loc[Inspection[i+1].df_joints['Match']==mj0[0]]
@@ -602,7 +610,74 @@ def find_clusters(df_Def, D):
             started_colony = False
             
     return cluster , colony_def
+#################################################################
 
+
+##################################################
+def def_critical_limits(dp,t,D,sige, MAOP):
+    # ASME B31g based
+    
+    a = 2/3*dp
+    P0 = 1.1*sige*2*t/D*10 *.72
+    
+    R = MAOP/P0
+    
+    #P0 * (1-amin) = MAOP
+    #amin = 1 - R = 2/3*dp_max
+    dp_max = (1 - R)*3/2 # (%)
+    #dp_max-dp
+    idx = np.where(dp> dp_max*1.2)
+    M1 = R*0
+    M1[idx]=R[idx]*a[idx]/(R[idx] - 1 + a[idx])
+    Llim = R*np.NaN
+    Llim[idx] = np.sqrt((M1[idx]**2 -1)*D*t[idx]/.8)
+    
+    return dp_max, Llim
+
+
+#####################################
+# MSOP (defect assessment)
+#####################################
+def comput_MSOP(D,t,dp,L,sige,sigu, unit = 'MPa'):
+    # D = Inspection[2].OD/1000
+    # t = Inspection[2].df_Def[t_name].values/1000
+    # dp = Inspection[2].df_Def[depth_name].values/100
+    # L = Inspection[2].df_Def[def_len_name].values/1000
+    # print(D,t,dp,L,sige,sigu, unit)
+    
+    # API 5L X70
+    # sige = 485 
+    # sigu = 565 
+    # MAOP = 100 #bar
+    thicks=[]
+    # DNV RP F101 d = d+ alph*StDd (example A1)
+    # d = (dp+0.21)*t
+    d = (dp+0)*t
+    
+    try:
+        Ndef = len(d)
+        PFs = np.zeros(Ndef)
+    
+        for i in range(Ndef):
+            PFs[i] = main_pipe_normas.modifiedb31g(D,t[i],L[i],d[i],sige,sigu,thicks)
+        
+    except:
+        PFs = main_pipe_normas.modifiedb31g(D,t,L,d,sige,sigu,thicks)
+        
+        
+    if (unit.upper()=='BARS')|(unit.upper()=='BAR'):
+        MSOP = PFs*10*.72
+    elif (unit.upper()=='MPA'):
+        MSOP = PFs*.72
+    else:
+        print('Nao encontrada unidade: ', unit)
+    # print(MSOP[0])
+    return MSOP
+
+##################################################
+
+
+##################################################
 import seaborn as sns
 # import matplotlib.cm as mcm
 
@@ -699,7 +774,7 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1], XY0=[], min_joint_dist = 0.5
     dfg['depth[%]'] = Inspection[i].df_Def.d
     dfg['Clock Position'] = Inspection[i].df_Def.clock_pos
     dfg['length [mm]'] = Inspection[i].df_Def.L
-    dfg['MSOP [bar]'] = Inspection[i].df_Def['MSOPbar']
+    dfg['MSOP [bar]'] = Inspection[i].df_Def['MSOP']*10
     dfg['ERF'] = Inspection[i].df_Def['ERF']
     dfg['t (mm)'] = Inspection[i].df_Def.t
     

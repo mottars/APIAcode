@@ -14,21 +14,24 @@ MRSI by  MottaRS
 
 import numpy.linalg as np
 
-def MRSI_3D(A, B,tol=1, debug=False):
+def MRSI_3D(A, B,tol=10, debugon=False):
     #Monotonic_Real_Sequence_Intersection
     n, m = len(A),len(B)
-    if debug: print('MRSI, n,m, tol = ',n,m, tol)
+    if debugon: print('MRSI, n,m, tol = ',n,m, tol)
     # print('A = ',A)
     # print('B = ',B)
     # L = np.zeros(m+1)
     # L = [[]]*(m+2)
     # pos = [[]]*(m+2)
     # pos = [[],[]]*m
-    posa = [0]*n
-    posb = [0]*m
+    posa = [-1]*n
+    posb = [-1]*m
     i_match=0
     pos = []
     ib0=0
+    
+    # if A[0]<B[0]:
+        
     
     # ok=0
     for ia in range(0,n):
@@ -36,8 +39,8 @@ def MRSI_3D(A, B,tol=1, debug=False):
         first_found = False
         # ok=0
         for ib in range(ib0,m):
-            if debug: print('ia,ib = ',ia,ib)
-            if debug: print('Aia,Bib = ',A[ia],B[ib])
+            if debugon: print('ia,ib = ',ia,ib)
+            if debugon: print('Aia,Bib = ',A[ia],B[ib])
             
             dd_new = np.norm(A[ia] - B[ib])
             if not first_found:

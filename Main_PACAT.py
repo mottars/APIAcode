@@ -2,7 +2,7 @@
 #%reset
 
 # from inspection_tools import get_spreadsheet_labels, pre_proc_df, inspection_match, CGR_Comput, find_clusters
-from inspection_tools import   CGR_Comput, plot_seaborns, compare_ERF_ProbF, matching
+from inspection_tools import   CGR_Comput, plot_seaborns, compare_ERF_ProbF, matching, comput_MSOP, def_critical_limits
 import Inspection_read as Ir
 # import pandas as pd
 import os
@@ -21,7 +21,6 @@ from python_scripts import Risk_Module as risk
 # import itertools
 # import matplotlib as mpl
 # import python_scripts.main_pipe_normas as normas
-
 
 
 relib_ana = 0
@@ -54,6 +53,8 @@ max_CGR = 1.2
 # future assessment 
 dt = 5 # years
 
+# Matching between inpections
+ij=[0,1]
 debugon = False
 XY0 = []
 
@@ -81,12 +82,7 @@ Z0 = XY0[2]
 df_Def = Inspi.df_Def
 if debugon: print('UTM coordinate: ', df_Def.gridzone_name.iloc[0], ' S ',df_Def.X_name.iloc[0], df_Def.Y_name.iloc[0])
 
-if Plot_Map:
-    ##############
-    # MAPs
-    Insps[-1].plot_map('Pipe_Map_2')
 
-ij=[0,1]
 match_Ins0, match_Ins1 = matching(Insps, ij, debugon = False)
 
 CGR, CGRp = CGR_Comput(Insps,ij, match_Ins0, match_Ins1, min_CGR=min_CGR, max_CGR=max_CGR)
@@ -97,20 +93,18 @@ Insps[ij[-1]].add_CGR(CGR, CGRp, min_CGR , max_CGR)
 
 Insps[-1].Identify_Cluster( col_names , debugon = False)
 
-#Save DF
-for i in range(len(Insps)):
-    Insps[i].df_Def.to_csv('./DataFrames/Defect2_DF_Final_' + str(i) + '_' + str(Insps[i].date) + '.csv')
 
 #########################################################################
-##########################################################################
 #############################################
 # future update
-Insps[ij[-1]].Future_def(Insps[ij[-1]], CGRp, dt=5, debugon = False)
+Insps[ij[-1]].Future_def(dt, debugon = debugon)
 
 
+###############################################
+### REFORMATING -> PAREI AQUI
+###############################################
 
 # Ir.X
-
 
 
 ############################################################
@@ -121,52 +115,66 @@ Insps[ij[-1]].Future_def(Insps[ij[-1]], CGRp, dt=5, debugon = False)
 # API 5L X70
 sige = 485 
 sigu = 565 
-MAOP = 100 #bar
+MAOP = 10 # MPA, 100 bar
 n_inspection = len(Insps)
 for i in range(n_inspection):
-
+    ## Need to create method!!!!!!!!!!!!
+    # Insps[i].assessment()
+    
+    df=Insps[i].df_Def
     # Meters
     D  = Insps[i].OD/1000
-    L  = Insps[i].df_Def.L.values/1000
-    t  = Insps[i].df_Def.t.values/1000
-    dp = Insps[i].df_Def.d.values/100
+    L  = df.L.values/1000
+    t  = df.t.values/1000
+    dp = df.d.values/100
     d  = dp*t
+        
+    MSOP = comput_MSOP(D,t,dp,L,sige,sigu, unit = 'MPa')
     
-    # thicks=[]
+    Insps[i].df_Def['MSOP'] = MSOP
+    Insps[i].df_Def['ERF'] = MAOP/MSOP
     
-    MSOPbar = Ir.comput_MSOP(D,t,dp,L,sige,sigu, unit = 'MPa')
-    
-    # Ndef = len(d)
-    # PFs = np.zeros(Ndef)
-    # for i in range(Ndef):
-    #     PFs[i] = normas.b31g(D,t[i],L[i],d[i],sige,sigu,thicks)
-    
-    # # Insps[-1].df_Def['PFs'] = PFs
-    
-    # MSOPbar = PFs*10*.72
-    Insps[i].df_Def['MSOPbar'] = MSOPbar
-    Insps[i].df_Def['ERF'] = MAOP/MSOPbar
-    
-    dp_max, Llim = Ir.def_critical_limits(dp,t,D,sige, MAOP)
+    dp_max, Llim = def_critical_limits(dp,t,D,sige, MAOP)
     
     Insps[i].df_Def['L max'] = Llim*1000
     Insps[i].df_Def['Max Safety d [%]'] = dp_max
+    
+    # Future assessment
+    if Insps[i].future:
+        df=Insps[i].df_Fut_Def
+        # Meters
+        D  = Insps[i].OD/1000
+        L  = df.L.values/1000
+        t  = df.t.values/1000
+        dp = df.d.values/100
+        d  = dp*t
+        MSOP = comput_MSOP(D,t,dp,L,sige,sigu, unit = 'MPa')
+        dp_max, Llim = def_critical_limits(dp,t,D,sige, MAOP)
+        Insps[i].df_Fut_Def['L max'] = Llim*1000
+        Insps[i].df_Fut_Def['Max Safety d [%]'] = dp_max
+        
 
 ###################################
 # Printing Critical Defects: ERF>0.99
 print_critical = 0
 if print_critical:
     print('Critical Defects: ERF>0.99')
-    id_crit = np.where(MAOP/MSOPbar>0.99)
+    id_crit = np.where(MAOP/MSOP>0.99)
     for i in id_crit[0]:
         print(Insps[-1].df_Def.iloc[i])
 
 
-i=len(Insps)
-df_Def.to_csv('./DataFrames/Defect_DF_Insp_' + str(i) + '_' + str(Insps[i-1].date))
+#Save DF
+for i in range(len(Insps)):
+    Insps[i].df_Def.to_csv('./DataFrames/Defect_Assessment_' + str(i) + '_' + str(Insps[i].date) + '.csv')   
 
+for i in range(len(Insps)):
+    Insps[i].df_joints.to_csv('./DataFrames/Joints_Inspection_' + str(i) + '_' + str(Insps[i].date) + '.csv')   
 
-
+if Plot_Map:
+    ##############
+    # MAPs
+    Insps[-1].plot_map('Pipe_Map_2')
 
 
 ############################################################
@@ -254,9 +262,9 @@ if relib_ana==1:
         print(np.sum(np.isnan(Insps[i].df_Def['beta'])))
 
 
-       
-
     compare_ERF_ProbF(Insps)
+    
+
 ############################################################
 ############################################################
 # PLOTS ###
@@ -281,7 +289,7 @@ if time_variable:
     plt.figure()
     for i in range(len(dts)):
         dp = dp0 + dts[i]*CGRp
-        MSOPbar = Ir.comput_MSOP(D,t,dp,L,sige,sigu, unit = 'bars')
+        MSOPbar = Ir.comput_MSOP(D,t,dp,L,sige,sigu)
         ERFi = MAOP/MSOPbar
         ERFs[:,i] =  ERFi
         Nfail[i] = sum(ERFi>0.99)
