@@ -120,7 +120,7 @@ class Pipetally:
         
     ##############
     # MAPs
-    def plot_map(self, name='', plot_joint=True, plot_defect=True, ERF_min=0.93, ERF_max=1.0, save_m=True):
+    def plot_map(self, name='', plot_joint=True, plot_defect=True, ERF_min=0.8, ERF_max=1.0, save_m=True):
 
         if len(name)==0:
             name = self.file_name+'_Map'
@@ -129,12 +129,11 @@ class Pipetally:
         #https://www.movable-type.co.uk/scripts/latlong-utm-mgrs.html
         #Latitude/Northing: n/a / 7585382.088 m
         #Longitude/Easting: n/a / 710594.426 m
-        
-        df = self.df_joints
-        LL=utm.to_latlon(df.X.to_numpy(),df.Y.to_numpy(),df.gridzone.iloc[0],self.grid_letter)            
+        df = self.df_joints.copy()
+        ## utm.to_latlon() function may change the Y value, use df = self.df_joints.copy() instead
+        LL=utm.to_latlon(df.X.to_numpy(),df.Y.to_numpy(),df.gridzone.iloc[0],self.grid_letter)  
         LL_mean = np.mean(LL,1)
         m = folium.Map(LL_mean, zoom_starts = 5)
-        
         
         if plot_joint:
             
@@ -142,12 +141,10 @@ class Pipetally:
             
             folium.PolyLine(
                 locations=coordinates,
-                color="#0047AB",
+                color="slategray",
                 weight=5,
                 tooltip="Pipeline xxx  and defects ERF>0.93",
             ).add_to(m)
-            
-        
         
         # LL = utm.to_latlon( df.X.to_numpy() , df.X.to_numpy() , df.gridzone.iloc[0], grid_letter)
         # Latitude = LL[0]
@@ -159,11 +156,10 @@ class Pipetally:
         ############################################################
         # Plot Defs in map ##############################################
         ############################################################
-            df=self.df_Def
-            
+            df=self.df_Def.copy()
             
             LL=utm.to_latlon(df.X.to_numpy(),df.Y.to_numpy(),df.gridzone.iloc[0],self.grid_letter)
-                
+
             ############################################################
             # ................................... geopandas
             df['Lat'] = LL[0]
@@ -180,26 +176,26 @@ class Pipetally:
                                         caption="ERF")
             gdf['ERF']=gdf['ERF'].fillna(0)
             gdf['color'] = gdf['ERF'].fillna(0).apply(colormap)
-            gdf['radii'] = gdf['d']*5+10 #(gdf['L']**.5)
+            gdf['radii'] = gdf['d']/5+20 #(gdf['L']**.5)
             # m = folium.Map(location=[(gdf.geometry.y).mean(), (gdf.geometry.x).mean()], zoom_start=4)
             folium.GeoJson(gdf, 
-                           marker=folium.Circle(radius=4, fill_color="orange", fill_opacity=0.4, color="black", weight=1),
+                           marker=folium.Circle(radius=4, fill_color="orange", fill_opacity=0.2, color="black", weight=1),
                            tooltip=folium.GeoJsonTooltip(fields=["feature", "ERF", "Lat","Long"]),
                            style_function=lambda x: {
                                     "fillColor": x['properties']['color'],
                                     "radius": x['properties']['radii'],
-                                    "fill_opacity": x['properties']['ERF'],
+                                    "fillOpacity": x['properties']['ERF'],
                                 },
-                           highlight_function=lambda x: {"fillOpacity": x['properties']['ERF']},
+                           highlight_function=0.3, #lambda x: {"fillOpacity": x['properties']['ERF']},
                            zoom_on_click=True,
 
                            name="Defects GeoData"
                            ).add_to(m)
             
-            # icon=folium.DivIcon(html=f"""<div style="font-family: courier new; color: collors>{"{:.0f}".format(temp)}</div>""")
+            # icon=folium.DivIcon(html=f"""<div style="font-family: Verdana; color: collors>{"{:.0f}".format(temp)}</div>""")
             for lat, lon, value, color in zip(gdf['Lat'],gdf['Long'],gdf['ERF'],gdf['color']):
                 folium.Marker(location=[lat,lon],
-                              icon=folium.DivIcon(html=f"""<div style="font-family: Verdana ; font-family: 22; color: {color};">{value:.2f}</div>""")
+                              icon=folium.DivIcon(html=f"""<div style="font-family: Tahoma ; font-size: 1.5em; color: {color};"><-{value:.2f}</div>""")
                               ).add_to(m)
             
             
