@@ -120,7 +120,7 @@ class Pipetally:
         
     ##############
     # MAPs
-    def plot_map(self, name='', plot_joint=True, plot_defect=True, ERF_min=0.8, ERF_max=1.0, save_m=True):
+    def plot_map(self, name='', plot_joint=True, plot_defect=True, ERF_min=0.0, ERF_max=1.0, d_min=0.0, save_m=True):
 
         if len(name)==0:
             name = self.file_name+'_Map'
@@ -143,7 +143,7 @@ class Pipetally:
                 locations=coordinates,
                 color="slategray",
                 weight=5,
-                tooltip="Pipeline xxx  and defects ERF>0.93",
+                tooltip= f"Pipeline xxx  with defects ERF > {ERF_min:.02f} e d > {d_min:.02f}%" ,
             ).add_to(m)
         
         # LL = utm.to_latlon( df.X.to_numpy() , df.X.to_numpy() , df.gridzone.iloc[0], grid_letter)
@@ -156,7 +156,8 @@ class Pipetally:
         ############################################################
         # Plot Defs in map ##############################################
         ############################################################
-            df=self.df_Def.copy()
+            critic = (self.df_Def["ERF"] > ERF_min) & (self.df_Def["d"] > d_min)
+            df=self.df_Def.copy().loc[critic]
             
             LL=utm.to_latlon(df.X.to_numpy(),df.Y.to_numpy(),df.gridzone.iloc[0],self.grid_letter)
 
@@ -174,28 +175,34 @@ class Pipetally:
             # ERFmin = gdf['ERF'].min()
             colormap= cm.LinearColormap(["blue", "green", "yellow", "red", "darkred"], vmin=ERF_min, vmax=1.0,
                                         caption="ERF")
-            gdf['ERF']=gdf['ERF'].fillna(0)
+            
+            gdf['ERF']=gdf['ERF'].fillna(0.3)
             gdf['color'] = gdf['ERF'].fillna(0).apply(colormap)
-            gdf['radii'] = gdf['d']/5+20 #(gdf['L']**.5)
+            gdf['radii'] = gdf['d']/2+50 #(gdf['L']**.5)
             # m = folium.Map(location=[(gdf.geometry.y).mean(), (gdf.geometry.x).mean()], zoom_start=4)
             folium.GeoJson(gdf, 
-                           marker=folium.Circle(radius=4, fill_color="orange", fill_opacity=0.2, color="black", weight=1),
-                           tooltip=folium.GeoJsonTooltip(fields=["feature", "ERF", "Lat","Long"]),
+                           marker=folium.Circle(radius=4, fill_color="orange", fill_opacity=0.2, color="black", weight=0),
+                           tooltip=folium.GeoJsonTooltip(fields=["feature", "ERF", "d", "L", "Lat","Long"]),
                            style_function=lambda x: {
                                     "fillColor": x['properties']['color'],
                                     "radius": x['properties']['radii'],
-                                    "fillOpacity": x['properties']['ERF'],
+                                    # "fillOpacity": x['properties']['ERF'],
                                 },
-                           highlight_function=0.3, #lambda x: {"fillOpacity": x['properties']['ERF']},
+                           highlight_function=lambda x: {"fillOpacity": 0.1},# x['properties']['ERF']},
                            zoom_on_click=True,
 
                            name="Defects GeoData"
                            ).add_to(m)
+            # folium.GeoJson(gdf, 
+            #                marker=folium.Marker(
+            #                    icon=folium.DivIcon(html=f"""<div style="font-family: Tahoma ; font-size: 1.5em; color: {color};">{value:.2f}</div>""")
+            #                name="Defects GeoData"
+            #                ).add_to(m)
             
             # icon=folium.DivIcon(html=f"""<div style="font-family: Verdana; color: collors>{"{:.0f}".format(temp)}</div>""")
             for lat, lon, value, color in zip(gdf['Lat'],gdf['Long'],gdf['ERF'],gdf['color']):
                 folium.Marker(location=[lat,lon],
-                              icon=folium.DivIcon(html=f"""<div style="font-family: Tahoma ; font-size: 1.5em; color: {color};"><-{value:.2f}</div>""")
+                              icon=folium.DivIcon(html=f"""<div style="font-family: Tahoma ; font-size: 1em; color: {color};"><b>+ &nbsp {value:.2f}<b></div>""")
                               ).add_to(m)
             
             

@@ -174,7 +174,7 @@ for i in range(len(Insps)):
 if Plot_Map:
     ##############
     # MAPs
-    Insps[-1].plot_map('Pipe_Map_2')
+    Insps[-1].plot_map('Pipe_Map_2',ERF_min=0.9, d_min=15)
 
 
 ############################################################
