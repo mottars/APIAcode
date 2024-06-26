@@ -83,88 +83,30 @@ def mawp(D,t,sige):
     return ((2*0.72*1*sige*t)/D)
 
 # In[Aux Functions]    
-def StD_func(acc_rel_abs,conf,insp_type,t, StDs=[], dates=[]):
+def StD_func(accur=0.1,conf=0.9,insp_type='MFL',t=0, StDs=[], dates=[]):
 
-    if insp_type==1:
+    if insp_type.upper()=='UT':
         # StD for UT
-        acc_abs = [0.25,0.5,1.] #mm
-        StD=np.sqrt(2)*acc_abs[acc_rel_abs]/(t*stats.norm.ppf(0.5+conf/2))
-    elif insp_type==0:
+        # acc_abs = [0.25,0.5,1.] #mm
+        if t==0:
+            print('Error!!!! t == 0 in StD_func, Risk Module')
+        StD=np.sqrt(2)*accur/(t*stats.norm.ppf(0.5+conf/2))
+    elif insp_type.upper()=='MFL':
         # StD for MFL
-        acc_rel = [0.05,0.1,0.2]
-        StD=acc_rel[acc_rel_abs]/(stats.norm.ppf(0.5+conf/2))
-    elif insp_type==2:
+        # acc_rel = [0.05,0.1,0.2]
+        StD=accur/(stats.norm.ppf(0.5+conf/2))
+    elif insp_type.upper()=='FUTURE':
         # Std for future analysis
         dt0=dates[1]-dates[0]
         dt1=dates[2]-dates[1]
         kd = dt1/dt0
         StD = ((StDs[1]*(1+kd))**2 + (StDs[0]*kd)**2)**.5
+        print('Future Std comput = ',StDs.append(StD))
+    else:
+        print('Error!!!! insp type not MFL, UT nor FUTURE')
     return StD
 
-# In[]
-################### Dados #########################
-# directory='RBP_files'
-# files=[]
-# for filename in os.listdir(directory):
-#     if filename.endswith(".txt"):
-#         files.append(filename)
-#datas='case_9.txt' #remain thicks
-
-# for datas in files:
-#for datas in ['0391km.txt']:
-    # print('##############################')
-    #datas=files[0] #remain thicks
-    # print(datas)
-    #D=762.0 #mm
-    # D=304.8*2 #mm
-    #tn=22.1 #mm
-    #f_u=525.3 #N/mm**2
-    # f_u=651.5250 #API5LX80 
-    # sigu=f_u
-    #sige=400 #N/mm**2
-    # sige=498.276022 #API5LX80
-    #file=directory+'\\'+datas
-    # file=datas
-    # thicks = np.loadtxt(directory+'/'+file,delimiter='\t',dtype=np.float32)
-    # L=thicks[-1,0]-thicks[0,0]
-
-
-    # tns=[14.56, #0391
-    # 12.58, #1373
-    # 8.22, #3601
-    # 6.27, #5882
-    # 6.51, #6515
-    # 6.51, #6598
-    # 6.55, #7075
-    # 6.45, #7312
-    # 6.33, #7528
-    # 6.63, #7613
-    # 6.45, #8449
-    # 6.39, #9436
-    # 6.55] #rbp1
-
-    # def thick(fname):
-    #     thickness={'0391':tns[0],
-    #     '1373':tns[1],
-    #     '3601':tns[2],
-    #     '5882':tns[3],
-    #     '6515':tns[4],
-    #     '6598':tns[5],
-    #     '7075':tns[6],
-    #     '7312':tns[7],
-    #     '7528':tns[8],
-    #     '7613':tns[9],
-    #     '8449':tns[10],
-    #     '9436':tns[11],
-    #     'rbp1':tns[12]
-    #     }
-    #     return thickness.get(fname,'Invalid name')
-
-
-    # tn=thick(datas.split('.txt')[0][0:4])
-    #StDtd = 0.087#Desvio Padrão da relação d/t pag.32 tab.3-5
-    # print(str(tn))
- 
+# In[failure_func]
 def failure_func(X,method,thicks=0):
     #M=[mPd,mD,mt,mL,md,mSy]
     #semi_empiric.effective_area(de,t,L,d,sigy,sigu,thicks)
@@ -200,84 +142,54 @@ def failure_func(X,method,thicks=0):
     return G
     
 # de,t,L,d,sigy,sigu = data_adapt(CorDutCase,opt='CorDutCase_2_standard')
-def Reliability_pipe(D,tn,L,d,sige,sigu,thicks=0,Pd=0,insp_type=0,acc_rel_abs=0,conf=0.9,method = semi_empiric.modifiedb31g, asp_ratio=1, future_assessment=False, dates=[]):
-    
-    # Failure Function
-    #fun_G='b31grstreng'
-    #fun_G='dnvrpf101'
-    # if (method == 'b31g'):
-    #     PF_empiric = semi_empiric.b31g(D,t,L,d,sigy,sigu)
-    # elif (method == 'dnv'): 
-    #     PF_empiric = semi_empiric.dnvrpf101(D,t,L,d,sigy,sigu)
-    # elif (method == 'all'): 
-    #     PF_empiric = [0,0,0,0,0,0]
-    #     PF_empiric[0] = semi_empiric.b31g(de,t,L,d,sigy,sigu)
-    #     PF_empiric[1] = semi_empiric.dnvrpf101(de,t,L,d,sigy,sigu)
-    #     PF_empiric[2] = min(semi_empiric.effective_area(de,t,L,d,sigy,sigu,thicks))
-    #     PF_empiric[3] = min(semi_empiric.dnv_complex_PartB(de,t,L,d,sigy,sigu,thicks))
-    #     PF_empiric[4] = min(semi_empiric.effective_area(de,t,L,d,sigy,sigu,thicks))
-    #     PF_empiric[5] = min(semi_empiric.dnv_complex_PartB(de,t,L,d,sigy,sigu,thicks))
-    if Pd==0:
-        Pd = mawp(D,tn,sige) #MPa pressão de projeto
-    
-    # fun_G=failure_func
-    
+def Reliability_pipe(D,tn,L,d,sige,sigu,Pd=0,insp_type='MFL',accuracy=0.1,conf=0.9,method = semi_empiric.modifiedb31g, asp_ratio=1, future_assessment=False, dates=[],thicks=0):
     
     # In[StD]
-    #MFL=0, UT=1
-    # insp_type=1
-    #Accuracy, relative=MFL, absolute=UT - position from list - 0,1,2...
-    # acc_rel_abs=0
+    # insp_type = MFL, absolute=UT 
+    # accuracy = 0
     #Confidence Level
     # conf=0.9
-    # mean=0
+    # def StD_func(accur=0.1,conf=0.9,insp_type=0,t=0, StDs=[], dates=[]):
     if future_assessment:
-        # print("future_assessment")
-        # print(future_assessment)
+        
         # Compute std of the defect in two times [0, and 0+dt[0]]
         StDs=[0,0]
         for i in [0,1] :
             if np.size(conf)==1:
-                StDs[i]=StD_func(acc_rel_abs,conf,insp_type,tn)
+                StDs[i]=StD_func(accuracy,conf,insp_type,tn)
             else:
-                StDs[i]=StD_func(acc_rel_abs[i],conf[i],insp_type[i],tn)
+                StDs[i]=StD_func(accuracy[i],conf[i],insp_type[i],tn)
         
-        StDtd=StD_func([],[],2,tn, StDs, dates)
-        # StDtd=StD_func(acc_rel_abs,conf,insp_type,tn)
+        StDtd=StD_func([],[],'FUTURE',[], StDs, dates)
     else :
-        StDtd=StD_func(acc_rel_abs,conf,insp_type,tn)
+        StDtd=StD_func(accuracy,conf,insp_type,tn)
         
+    print('STD = '+str(StDtd) + ', COVd = '+str(StDtd/d))
+    
     # print('STD = '+str(StDtd) + ', COVd = '+str(StDtd/d))
     # In[]
+    
+    if Pd==0:
+        Pd = mawp(D,tn,sige) #MPa pressão de projeto
     ##############Parâmetros da dist.##################
     # From DNV RP F101 + A.P. Teixeira et al. / International Journal of Pressure Vessels and Piping 85 (2008) 228–237
     stdL = min(StDtd*20,L*.05)
     mPd = 1.05*Pd  ;sPd = mPd*.03 ; tPd='gumbel';#Pa Pressão de Projeto
     mD = D  ;sD = mD*.001 ; tD='lognorm';#m Diâmetro
     mt = tn  ;st = mt*.03 ; tt='lognorm';#m espessura nominal
-    mL = L  ;sL = stdL ; tL='norm';#m Comprimento do defeito
-    md = d  ;sd = StDtd  ; td='norm';# Profundidade do defeito
+    mL = L  ;sL = stdL ; tL='lognorm';#m Comprimento do defeito
+    md = d  ;sd = StDtd  ; td='lognorm';# Profundidade do defeito
     mSy = sige*1.08  ;sSy = mSy*.08 ; tSy='lognorm';#MPa Tensão de escoamento
     mSu = sigu*1.09  ;sSu = mSu*.06 ; tSu='lognorm';#MPa tensão última
-    mErr = 1; sErr = 0.05; tErr='norm'  # Model Error
+    mErr = 1; sErr = 0.05; tErr='lognorm';  # Model Error
     ###################################################
     
     # PRE_PROCESS
     M = [mPd,mD,mt,mL,md,mSy, mSu, mErr];
     S = [sPd,sD,st,sL,sd,sSy,sSu, sErr];
-    # print("M")
-    # print(M)
-    # print("S")
-    # print(S)
     
     # Array of Dist. Types
     RV_type=[tPd,tD,tt,tL,td,tSy,tSu, tErr];
-
-
-    # Failure Function (method)
-    # fun_G='b31g';
-    #fun_G='b31grstreng'
-    #fun_G='dnvrpf101'
 
     #num. de variaveis aleatorias
     nRV = len(M);
@@ -286,9 +198,6 @@ def Reliability_pipe(D,tn,L,d,sige,sigu,thicks=0,Pd=0,insp_type=0,acc_rel_abs=0,
     P=[]
     for i in range(nRV):
         P.append(DC.pdf_parameters(M[i],S[i],RV_type[i]));
-    
-    # M = M+np.array(S)*[1,1,-1,1,1,-1,0,-1]*1
-    #print(P)
     
     #mG=G_calc(fun_G,X)
     #mG=effecArea(D,thicks,tn,StDtd,sige)
@@ -299,8 +208,7 @@ def Reliability_pipe(D,tn,L,d,sige,sigu,thicks=0,Pd=0,insp_type=0,acc_rel_abs=0,
     PF_form, beta, MPP, ii,alpha = form(M,RV_type,P,failure_func,method,thicks)
 
     duration=timer()-start
-    # print('Form time  = '+str(duration))
-    # print('Reliability index beta = %.6f'%beta+'\n')
+    print('Form time  = '+str(duration), 's, Reliability index beta = %.6f'%beta, 'PF_form = ',PF_form , '/n')
     #############################
     
     

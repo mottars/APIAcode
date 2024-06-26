@@ -12,8 +12,7 @@ import numpy as np
 
 
 # import Sistema_Cordut.Risk_Module as risk
-from python_scripts import main_pipe_normas as sempiric
-from python_scripts import Risk_Module as risk
+# from python_scripts import main_pipe_normas as sempiric
 # import Sistema_Cordut.main_pipe_normas as semi_empiric
 
 # import sys
@@ -23,7 +22,7 @@ from python_scripts import Risk_Module as risk
 # import python_scripts.main_pipe_normas as normas
 
 
-relib_ana = 0
+relib_ana = 1
 
 Plot_Map = 1
 plot_seaborn = 1
@@ -64,7 +63,7 @@ XY0 = []
 # Inspection = []
 
 #############################################
-#1st
+#Inspection read!!
 col_names=[]
 Insps = []
 for i_insp in range(len(spreadsheet_names)):
@@ -97,7 +96,9 @@ Insps[-1].Identify_Cluster( col_names , debugon = False)
 #########################################################################
 #############################################
 # future update
-Insps[ij[-1]].Future_def(dt, debugon = debugon)
+Insps.append(Insps[ij[-1]])
+Dates=[Insps[i].date for i in ij]
+Insps[-1].Future_def(Dates, dt, ij, debugon = debugon)
 
 
 ###############################################
@@ -140,20 +141,19 @@ for i in range(n_inspection):
     Insps[i].df_Def['Max Safety d [%]'] = dp_max
     
     # Future assessment
-    if Insps[i].future:
-        df=Insps[i].df_Fut_Def
-        # Meters
-        D  = Insps[i].OD/1000
-        L  = df.L.values/1000
-        t  = df.t.values/1000
-        dp = df.d.values/100
-        d  = dp*t
-        MSOP = comput_MSOP(D,t,dp,L,sige,sigu, unit = 'MPa')
-        dp_max, Llim = def_critical_limits(dp,t,D,sige, MAOP)
-        Insps[i].df_Fut_Def['L max'] = Llim*1000
-        Insps[i].df_Fut_Def['Max Safety d [%]'] = dp_max
-        
-
+    # if Insps[i].future:
+    #     df=Insps[i].df_Fut_Def
+    #     # Meters
+    #     D  = Insps[i].OD/1000
+    #     L  = df.L.values/1000
+    #     t  = df.t.values/1000
+    #     dp = df.d.values/100
+    #     d  = dp*t
+    #     MSOP = comput_MSOP(D,t,dp,L,sige,sigu, unit = 'MPa')
+    #     dp_max, Llim = def_critical_limits(dp,t,D,sige, MAOP)
+    #     Insps[i].df_Fut_Def['L max'] = Llim*1000
+    #     Insps[i].df_Fut_Def['Max Safety d [%]'] = dp_max
+    
 ###################################
 # Printing Critical Defects: ERF>0.99
 print_critical = 0
@@ -162,8 +162,10 @@ if print_critical:
     id_crit = np.where(MAOP/MSOP>0.99)
     for i in id_crit[0]:
         print(Insps[-1].df_Def.iloc[i])
+##############
 
 
+##############
 #Save DF
 for i in range(len(Insps)):
     Insps[i].df_Def.to_csv('./DataFrames/Defect_Assessment_' + str(i) + '_' + str(Insps[i].date) + '.csv')   
@@ -171,101 +173,24 @@ for i in range(len(Insps)):
 for i in range(len(Insps)):
     Insps[i].df_joints.to_csv('./DataFrames/Joints_Inspection_' + str(i) + '_' + str(Insps[i].date) + '.csv')   
 
+##############
+##############
+# MAPs
 if Plot_Map:
-    ##############
-    # MAPs
     Insps[-1].plot_map('Pipe_Map_2',ERF_min=0.9, d_min=15)
-
 
 ############################################################
 # Reliability Analysis
 if relib_ana==1:
-
-    case = sempiric.modifiedb31g
     
     n_Insps = len(Insps)
-    
-    # Inspection Tool DATA:
-    Insp_type=[0,0] ## MFL=0, UT=1
-    
-    #Accuracy, relative
-    # Accuracy_rel_abs= [1,1]
-    Accuracy_rel_abs= [1,0]
-    # insp_type==0:  MFL
-    #   acc_rel = [0.05*t,0.1*t,0.2*t]
-    
-    # insp_type==1:  UT
-    #   acc_abs = [0.25,0.5,1.]
-    
-    #Confidence Level 
-    # Confidence=[0.8, 0.9]
-    Confidence=[0.9, 0.9]
-    
-    Dates=[Insps[i].date for i in range(n_Insps)]
-    d=[]
-    for i in range(n_Insps):
-        Insps[i].MPP=[]
-        MAOP = Insps[i].MAOP
-        sige = Insps[i].sige
-        sigu = Insps[i].sigu
-        # meters
-        D    = Insps[i].OD/1000
-        L    = Insps[i].df_Def.L.values/1000
-        t    = Insps[i].df_Def.t.values/1000
-        dp   = Insps[i].df_Def.d.values/100
-        # d    = dp*t
-        Ndef = len(dp)
-        idx=Insps[i].df_Def.index
-        PFs = np.zeros(Ndef)
-        for j in range(Ndef):
-            if i==n_Insps-1:
-                # FUTURE RELIABILITY ANALYSIS #############
-                PF_form, beta, MPP, Pd, ii, alpha, StDtd = risk.Reliability_pipe(D, t[j], L[j], dp[j],
-                    sige, sigu, Pd=MAOP, method=case , insp_type=Insp_type,
-                    acc_rel_abs=Accuracy_rel_abs, conf=Confidence,
-                    future_assessment=True, dates=Dates)
-    
-            else:
-                PF_form, beta, MPP, Pd, ii, alpha, StDtd = risk.Reliability_pipe(D, t[j], L[j], dp[j] ,
-                    sige, sigu, Pd=MAOP, method=case , insp_type=Insp_type[i],
-                    acc_rel_abs=Accuracy_rel_abs[i], conf=Confidence[i])
-    
-            Insps[i].df_Def.loc[idx[j],'PF_form']=PF_form
-            Insps[i].df_Def.loc[idx[j],'beta'] = beta
-            Insps[i].MPP.append((MPP))
-            Insps[i].df_Def.loc[idx[j],'Pd'] = Pd
-            Insps[i].df_Def.loc[idx[j],'FORM Iterations'] = ii
-            # Insps[i].alpha.append((alpha))
-            # Insps[i].df_Def.loc[idx[j],'alpha'] = alpha
-            Insps[i].df_Def.loc[idx[j],'StD d'] = StDtd
-    
-    ############################################################
-    ############################################################
-    #% Reliability plots#
-    # for i in range(n_Insps):
-        
-    #     plt.figure()
-    #     plt.plot(Insps[i].df_Def['PF_form'], Insps[i].df_Def['ERF'],'.')
-    #     plt.xlabel('PF_form')
-    #     plt.xscale('log')
-    #     plt.ylabel('EFR')
-    #     plt.title('Insps ' + str(i))
-        
-    #     plt.figure()
-    #     plt.plot(Insps[i].df_Def['beta'], Insps[i].df_Def['ERF'],'.')
-    #     plt.xlabel('beta')
-    #     plt.ylabel('EFR')
-    #     plt.title('Insps ' + str(i))
-    
-    print('Form convergence problems:')
-    for i in range(n_Insps):
-        print(np.sum(np.isnan(Insps[i].df_Def['beta'])))
-
+    for inspi in Insps:
+        inspi.reliability_analysis()
+        print('Form convergence problems?:')
+        print(np.sum(np.isnan(inspi.df_Def['beta'])))
 
     compare_ERF_ProbF(Insps)
     
-
-############################################################
 ############################################################
 # PLOTS ###
 

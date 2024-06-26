@@ -18,7 +18,7 @@ import matplotlib.cm as mcm
 # Match between joint position using LCRS algorithm
 # Monotonic_Real_Sequences_Intersection
 from Algorithms import MRSI_3D
-from python_scripts import main_pipe_normas
+from python_scripts import main_pipe_normas as sempiric
 
 debugon = False
 def get_spreadsheet_labels(Labels):
@@ -659,10 +659,10 @@ def comput_MSOP(D,t,dp,L,sige,sigu, unit = 'MPa'):
         PFs = np.zeros(Ndef)
     
         for i in range(Ndef):
-            PFs[i] = main_pipe_normas.modifiedb31g(D,t[i],L[i],d[i],sige,sigu,thicks)
+            PFs[i] = sempiric.modifiedb31g(D,t[i],L[i],d[i],sige,sigu,thicks)
         
     except:
-        PFs = main_pipe_normas.modifiedb31g(D,t,L,d,sige,sigu,thicks)
+        PFs = sempiric.modifiedb31g(D,t,L,d,sige,sigu,thicks)
         
         
     if (unit.upper()=='BARS')|(unit.upper()=='BAR'):
@@ -675,7 +675,6 @@ def comput_MSOP(D,t,dp,L,sige,sigu, unit = 'MPa'):
     return MSOP
 
 ##################################################
-
 
 ##################################################
 import seaborn as sns

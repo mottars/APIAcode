@@ -11,6 +11,9 @@ import os
 import sys
 from inspection_tools import get_spreadsheet_labels, pre_proc_df, find_clusters
 
+from python_scripts import Risk_Module as risk
+from python_scripts import main_pipe_normas as sempiric
+
 # MAPS
 import folium 
 import utm
@@ -21,7 +24,7 @@ import branca.colormap as cm
 
 
 class Pipetally:
-    def __init__(self, file_name, date, OD, surce_dir='',future=False, grid_letter='J', sige = 485, sigu = 565, MAOP = 10):
+    def __init__(self, file_name, date, OD, surce_dir='',future=False, grid_letter='J', sige = 485, sigu = 565, MAOP = 10, Insp_type = 'MFL',Confid_level=0.85, Accuracy=0.1, acc_rel = 0.05):
         self.file_name = file_name
         self.date = date
         self.OD = OD
@@ -32,8 +35,18 @@ class Pipetally:
         self.sige = sige
         self.sigu = sigu
         
+        # Inspection Tool DATA:
+        self.Insp_type=Insp_type ## MFL, UT
+        # PIG instrument tolerance
+        self.Confid_level = Confid_level
+        self.Accuracy = Accuracy
+        # Accuracy_rel_abs== MFL
+        #   Accuracy = 0.05*t,0.1*t,0.2*t,...
+        # Accuracy_rel_abs== UT
+        #   Accuracy = 0.25,0.5,1.,...
+        
         ######################################
-        # Gambiarra Não vem no Pipetally -> UTM
+        # Gambiarra Não vem no Pipetally -> using UTM !!!!!!!!!!!
         self.grid_letter=grid_letter
         ######################################
         
@@ -62,9 +75,6 @@ class Pipetally:
         col_names, Corrosion_comment = get_spreadsheet_labels(Labels)
         df_Def, i_def, df_joints, i_joints, col_names, df, XY0 = pre_proc_df(df,col_names, Corrosion_comment,XY0)
         
-        # Saving csv output
-        # i=len(Inspection)
-        # df_Def.to_csv('./DataFrames/Defect_DF_Insp_' + str(i) + '_' + str(self.date))
         
         # self.df_General = df
         self.df_Def = df_Def
@@ -107,16 +117,82 @@ class Pipetally:
         
         #############################################
         
-    def Future_def(self, dt=5, debugon = False):
+    def Future_def(self, Dates, dt, ij, debugon = False):
         ##########################################################################
         ##########################################################################
         # future update
-        
         self.future = True
-        self.df_Fut_Def = self.df_Def.copy()
-        self.df_Fut_Def.d= self.df_Def.d.values + self.df_Def.CGRp*dt
+        self.date = Dates
+        self.date.append(Dates[-1]+dt)
+        self.df_Def.d= self.df_Def.d.values + self.df_Def.CGRp*dt
         
         #############################################
+        
+    def reliability_analysis(self, semi_empiric = sempiric.modifiedb31g):
+        self.MPP=[]
+        MAOP = self.MAOP
+        sige = self.sige
+        sigu = self.sigu
+        
+        Insp_type   = self.Insp_type
+        Confidence  = self.Confid_level
+        Accuracy    = self.Accuracy
+        # acc_rel     = self.acc_rel
+        
+        future_analysis = self.future
+        
+        # meters
+        D    = self.OD/1000
+        L    = self.df_Def.L.values/1000
+        t    = self.df_Def.t.values/1000
+        dp   = self.df_Def.d.values/100
+        # d    = dp*t
+        Ndef = len(dp)
+        idx=self.df_Def.index
+        PFs = np.zeros(Ndef)
+        
+        
+        Dates=self.date
+        for j in range(Ndef):
+            
+            # if future_analysis:
+                # comput std0 and std1, first
+                # accuracy[i],conf[i],insp_type[i],tn
+            # Reliability_pipe(D,tn,L,d,sige,sigu,Pd=0,insp_type='MFL',accuracy=0.1,conf=0.9,method = semi_empiric.modifiedb31g, asp_ratio=1, future_assessment=False, dates=[]):
+            PF_form, beta, MPP, Pd, ii, alpha, StDtd = risk.Reliability_pipe(D, t[j], L[j], dp[j],
+                sige, sigu, Pd=MAOP, insp_type=Insp_type,
+                 conf=Confidence,  method=semi_empiric , # accuracy=Accuracy,
+                future_assessment=future_analysis, dates=Dates)
+            
+            PFs[j] = PF_form
+    
+            self.df_Def.loc[idx[j],'PF_form']=PF_form
+            self.df_Def.loc[idx[j],'beta'] = beta
+            self.MPP.append((MPP))
+            self.df_Def.loc[idx[j],'Pd'] = Pd
+            self.df_Def.loc[idx[j],'FORM Iterations'] = ii
+            # self.alpha.append((alpha))
+            # self.df_Def.loc[idx[j],'alpha'] = alpha
+            self.df_Def.loc[idx[j],'StD d'] = StDtd
+    
+    ############################################################
+    ############################################################
+    #% Reliability plots#
+    # for i in range(n_Insps):
+        
+    #     plt.figure()
+    #     plt.plot(self.df_Def['PF_form'], self.df_Def['ERF'],'.')
+    #     plt.xlabel('PF_form')
+    #     plt.xscale('log')
+    #     plt.ylabel('EFR')
+    #     plt.title('Insps ' + str(i))
+        
+    #     plt.figure()
+    #     plt.plot(self.df_Def['beta'], self.df_Def['ERF'],'.')
+    #     plt.xlabel('beta')
+    #     plt.ylabel('EFR')
+    #     plt.title('Insps ' + str(i))
+    
         
     ##############
     # MAPs
@@ -143,7 +219,7 @@ class Pipetally:
                 locations=coordinates,
                 color="slategray",
                 weight=5,
-                tooltip= f"Pipeline xxx  with defects ERF > {ERF_min:.02f} e d > {d_min:.02f}%" ,
+                tooltip= f"Pipeline xxx  with defects ERF > {ERF_min:.02f} and d > {d_min:.02f}%" ,
             ).add_to(m)
         
         # LL = utm.to_latlon( df.X.to_numpy() , df.X.to_numpy() , df.gridzone.iloc[0], grid_letter)
@@ -220,52 +296,5 @@ class Pipetally:
             print("saved Pipi_Defects: "+name)
         
         return m
-    
-    
-
+       
 ##########################################################################
-
-
-
-#############################################
-# TRASH!
-# class struct_dataxxxxx:
-#         pass
-    
-# def read_inspectionXXX(Inspection,pd,spreadsheet_name, OD, date, surce_dir, XY0=[], debugon = False):
-    
-#     Inspection.append(struct_data())
-#     Inspection[-1].file_name = [spreadsheet_name]
-#     Inspection[-1].date = date
-#     Inspection[-1].OD = OD
-    
-#     if (spreadsheet_name==[]):
-#         return
-    
-#     try:
-#         df = pd.read_csv(surce_dir+os.sep+spreadsheet_name, sep=';' )
-#     except:
-#         df = pd.read_excel(surce_dir+os.sep+spreadsheet_name,   )
-    
-#     print(spreadsheet_name)
-#     print("DF size: ",sys.getsizeof(df))
-    
-#     Labels = df.columns.values
-#     col_names, Corrosion_comment = get_spreadsheet_labels(Labels)
-#     df_Def, i_def, df_joints, i_joints, col_names, df, XY0 = pre_proc_df(df,col_names, Corrosion_comment,XY0)
-    
-#     # Saving csv output
-#     # i=len(Inspection)
-#     # df_Def.to_csv('./DataFrames/Defect_DF_Insp_' + str(i) + '_' + str(Inspection[i-1].date))
-    
-#     # Inspection[-1].df_General = df
-#     Inspection[-1].df_Def = df_Def
-#     Inspection[-1].i_def = i_def
-#     Inspection[-1].df_joints = df_joints
-#     Inspection[-1].i_joints = i_joints
-#     if debugon: print("DFjoint size: ",sys.getsizeof(df_joints))
-#     if debugon: print("DFml size: ",sys.getsizeof(df_Def))
-    
-#     # depth_name, def_len_name , def_w_name,t_name , Y_name , X_name  ,H_name , gridzone_name , tube_num_name , tube_len_name , weld_dist_name , Z_pos_name , circ_pos_name , surf_pos_name , ERF_name , feature_name = col_names 
-  
-#     return XY0, col_names
