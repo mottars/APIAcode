@@ -9,7 +9,8 @@ import pandas as pd
 import numpy as np
 import os
 import sys
-from inspection_tools import get_spreadsheet_labels, pre_proc_df, find_clusters
+import inspection_tools as itools
+# get_spreadsheet_labels, pre_proc_df, find_clusters, comput_MSOP, def_critical_limits
 
 from python_scripts import Risk_Module as risk
 from python_scripts import main_pipe_normas as sempiric
@@ -23,8 +24,8 @@ import branca.colormap as cm
    
 
 
-class Pipetally:
-    def __init__(self, file_name, date, OD, surce_dir='',future=False, grid_letter='J', sige = 485, sigu = 565, MAOP = 10, Insp_type = 'MFL',Confid_level=0.85, Accuracy=0.1, acc_rel = 0.05):
+class Inspection_data:
+    def __init__(self, file_name, date, OD, surce_dir='',future=False, grid_letter='J', sige = 485, sigu = 565, MAOP = 10, Insp_type = 'MFL',Confid_level=0.85, Accuracy=0.1, acc_rel =-1):
         self.file_name = file_name
         self.date = date
         self.OD = OD
@@ -51,11 +52,9 @@ class Pipetally:
         ######################################
         
 
-    def read(self, i=0,  XY0=[], debugon = False):
-        # Inspection.append(struct_data())
-        # self.file_name = [spreadsheet_name]
-        # self.date = date
-        # self.OD = OD
+    def Tally_read(self, i=0,  XY0=[], debugon = False):
+        # Pipe Tally read to Data Frame
+        
         spreadsheet_name = self.file_name
         
         if (spreadsheet_name==[]):
@@ -68,12 +67,12 @@ class Pipetally:
             df = pd.read_excel(self.surce_dir+os.sep+spreadsheet_name,   )
         
         print(spreadsheet_name)
-        print("DF size: ",sys.getsizeof(df))
+        print("Raw Data Frame size: ",sys.getsizeof(df))
         # print(df['event / comment'])
         
         Labels = df.columns.values
-        col_names, Corrosion_comment = get_spreadsheet_labels(Labels)
-        df_Def, i_def, df_joints, i_joints, col_names, df, XY0 = pre_proc_df(df,col_names, Corrosion_comment,XY0)
+        col_names, Corrosion_comment = itools.get_spreadsheet_labels(Labels)
+        df_Def, i_def, df_joints, i_joints, col_names, df, XY0 = itools.pre_proc_df(df,col_names, Corrosion_comment,XY0)
         
         
         # self.df_General = df
@@ -99,7 +98,7 @@ class Pipetally:
         # mm to m
         D = self.OD/1000
         
-        cluster, colony_def = find_clusters(self.df_Def, D)
+        cluster, colony_def = itools.find_clusters(self.df_Def, D)
         
         self.clusters = cluster
         # Insps[-1].df_Def['Clusters'] = colony_def
@@ -117,16 +116,42 @@ class Pipetally:
         
         #############################################
         
-    def Future_def(self, Dates, dt, ij, debugon = False):
+    def Future_def(self, Dates, dt, debugon = False):
         ##########################################################################
         ##########################################################################
         # future update
         self.future = True
         self.date = Dates
+        self.file_name = self.file_name+'_Future'
         self.date.append(Dates[-1]+dt)
         self.df_Def.d= self.df_Def.d.values + self.df_Def.CGRp*dt
         
         #############################################
+    def Defects_Analysis(self, analysis_type = sempiric.modifiedb31g):
+                
+        
+        df=self.df_Def
+        MAOP = self.MAOP
+        sige = self.sige
+        sigu = self.sigu
+        # Meters
+        D  = self.OD/1000
+        L  = df.L.values/1000
+        t  = df.t.values/1000
+        
+        dp = df.d.values/100 # dp(%)
+        # d  = dp*t
+            
+        MSOP = itools.comput_MSOP(D,t,dp,L,sige,sigu, unit = 'MPa', method=analysis_type)
+        
+        self.df_Def['MSOP'] = MSOP
+        self.df_Def['ERF'] = MAOP/MSOP
+        
+        dp_max, Llim = itools.def_critical_limits(dp,t,D,sige, MAOP)
+        
+        self.df_Def['L max'] = Llim*1000
+        self.df_Def['Max Safety d [%]'] = dp_max
+        
         
     def reliability_analysis(self, semi_empiric = sempiric.modifiedb31g):
         self.MPP=[]
@@ -161,7 +186,7 @@ class Pipetally:
             # Reliability_pipe(D,tn,L,d,sige,sigu,Pd=0,insp_type='MFL',accuracy=0.1,conf=0.9,method = semi_empiric.modifiedb31g, asp_ratio=1, future_assessment=False, dates=[]):
             PF_form, beta, MPP, Pd, ii, alpha, StDtd = risk.Reliability_pipe(D, t[j], L[j], dp[j],
                 sige, sigu, Pd=MAOP, insp_type=Insp_type,
-                 conf=Confidence,  method=semi_empiric , # accuracy=Accuracy,
+                 conf=Confidence,  method=semi_empiric , accuracy=Accuracy,
                 future_assessment=future_analysis, dates=Dates)
             
             PFs[j] = PF_form

@@ -101,7 +101,7 @@ def StD_func(accur=0.1,conf=0.9,insp_type='MFL',t=0, StDs=[], dates=[]):
         dt1=dates[2]-dates[1]
         kd = dt1/dt0
         StD = ((StDs[1]*(1+kd))**2 + (StDs[0]*kd)**2)**.5
-        print('Future Std comput = ',StDs.append(StD))
+        print('Future Std comput = ',StDs, StD)
     else:
         print('Error!!!! insp type not MFL, UT nor FUTURE')
     return StD

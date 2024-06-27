@@ -638,16 +638,8 @@ def def_critical_limits(dp,t,D,sige, MAOP):
 #####################################
 # MSOP (defect assessment)
 #####################################
-def comput_MSOP(D,t,dp,L,sige,sigu, unit = 'MPa'):
-    # D = Inspection[2].OD/1000
-    # t = Inspection[2].df_Def[t_name].values/1000
-    # dp = Inspection[2].df_Def[depth_name].values/100
-    # L = Inspection[2].df_Def[def_len_name].values/1000
-    # print(D,t,dp,L,sige,sigu, unit)
-    
-    # API 5L X70
-    # sige = 485 
-    # sigu = 565 
+def comput_MSOP(D,t,dp,L,sige,sigu, unit = 'MPa', method=sempiric.modifiedb31g):
+   
     # MAOP = 100 #bar
     thicks=[]
     # DNV RP F101 d = d+ alph*StDd (example A1)
@@ -659,10 +651,10 @@ def comput_MSOP(D,t,dp,L,sige,sigu, unit = 'MPa'):
         PFs = np.zeros(Ndef)
     
         for i in range(Ndef):
-            PFs[i] = sempiric.modifiedb31g(D,t[i],L[i],d[i],sige,sigu,thicks)
+            PFs[i] = method(D,t[i],L[i],d[i],sige,sigu,thicks)
         
     except:
-        PFs = sempiric.modifiedb31g(D,t,L,d,sige,sigu,thicks)
+        PFs = method(D,t,L,d,sige,sigu,thicks)
         
         
     if (unit.upper()=='BARS')|(unit.upper()=='BAR'):
@@ -670,7 +662,7 @@ def comput_MSOP(D,t,dp,L,sige,sigu, unit = 'MPa'):
     elif (unit.upper()=='MPA'):
         MSOP = PFs*.72
     else:
-        print('Nao encontrada unidade: ', unit)
+        print('Nao encontrada unidade: ', unit, 'Bar or MPA')
     # print(MSOP[0])
     return MSOP
 
@@ -685,22 +677,26 @@ def compare_ERF_ProbF(Inspection):
     cmap = mcm.jet
     DF=pd.DataFrame()
     
+    # ninsp=len(Inspection)
+
+    
     for i in [1,2,3,4]:
         
-        if i==2:
-            tt='Future Assessment (5 years)'
-        elif i==1:
+        if i==1:
             tt='Current Inspection'
-        if i==4:
-            tt='Future Assessment (5 years),  t=11.45 mm'
+        elif i==2:
+            tt='Future Assessment (5 years)'
         elif i==3:
             tt='Current Inspection,  t=11.45 mm'
+        elif i==4:
+            tt='Future Assessment (5 years),  t=11.45 mm'
             
         if i>2:
             i=i-2
             select=1
             sel = Inspection[i].df_Def['t']<13
-            sel = (Inspection[i].df_Def['t']<13) & (Inspection[i].df_Def['beta']>0.1)
+            # sel = (Inspection[i].df_Def['t']<13) & (Inspection[i].df_Def['beta']>0.1)
+            
         else:
             select=0
             sel = Inspection[i].df_Def['t']<99
