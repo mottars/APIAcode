@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 #%reset
+#pip install folium 
+#pip install utm
+#pip install geopandas
 
 import inspection_tools as itools
 # from inspection_tools import get_spreadsheet_labels, pre_proc_df, inspection_match, CGR_Comput, find_clusters
