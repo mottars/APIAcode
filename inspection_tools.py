@@ -833,10 +833,10 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1], XY0=[], min_joint_dist = 0.5
         # plt.figure(dpi=300)
         #sns.scatterplot
         
-        sns.relplot(x="X", y="Y", hue ='Cluster #', size ="length [mm]",
-                sizes=(fig_size*6, fig_size*120), alpha=.5, style = 'Cluster defs' ,
-                height=fig_size*1.5, data=dfg)
-        plt.plot(Xpl, Ypl)
+        # sns.relplot(x="X", y="Y", hue ='Cluster #', size ="length [mm]",
+        #         sizes=(fig_size*6, fig_size*120), alpha=.5, style = 'Cluster defs' ,
+        #         height=fig_size*1.5, data=dfg)
+        # plt.plot(Xpl, Ypl)
     
     df_jd=dfg.drop(dfg[np.isnan(dfg['Defect on Joints'])].index)
     idx = dfg.index[dfg['t (mm)']<12]
