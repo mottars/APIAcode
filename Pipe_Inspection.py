@@ -292,7 +292,7 @@ class Inspection_data:
                            highlight_function=lambda x: {"fillOpacity": 0.1},# x['properties']['ERF']},
                            zoom_on_click=True,
 
-                           name="Defects GeoData"
+                           name2=name + "Defects GeoData"
                            ).add_to(m)
             # folium.GeoJson(gdf, 
             #                marker=folium.Marker(
@@ -317,7 +317,7 @@ class Inspection_data:
             
             
         if save_m:
-            m.save(name+'.html')
+            m.save(name2+'.html')
             print("saved Pipi_Defects: "+name)
         
         return m

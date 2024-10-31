@@ -157,7 +157,7 @@ for i in Insps:
 ##############
 # MAPs
 if Plot_Map:
-    Insps[-1].plot_map('Pipe_Map_2',ERF_min=0.9, d_min=15)
+    Insps[-1].plot_map('Pipe_Map_novo',ERF_min=0.9, d_min=15)
 
 ############################################################
 # Reliability Analysis
@@ -171,8 +171,6 @@ if relib_ana==1:
         print(np.sum(np.isnan(inspi.df_Def['beta'])))
 
     itools.compare_ERF_ProbF(Insps)
-    
-    
 ############################################################
 # PLOTS ###
 
