@@ -15,6 +15,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
 
 from python_scripts import main_pipe_normas as sempiric
+import copy
 
 # import Sistema_Cordut.Risk_Module as risk
 # from python_scripts import main_pipe_normas as sempiric
@@ -68,6 +69,7 @@ dt = 5 # years
 
 # Matching between inpections
 ij=[0,1]
+
 debugon = False
 XY0 = []
 
@@ -123,7 +125,6 @@ Insps[-1].Identify_Cluster( col_names , debugon = False)
 ##########################################################################
 # Future Defect sizes  (between "ij" inspection)
 ##########################################################################
-import copy
 # future data creation
 Insps.append(copy.deepcopy(Insps[ij[-1]]))
 # Dates from inspection used to predict future 
