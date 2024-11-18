@@ -30,6 +30,7 @@ import copy
 
 relib_ana = 1
 
+# Geolocalização
 Plot_Map = 1
 plot_seaborn = 1
 time_variable=0
