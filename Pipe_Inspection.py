@@ -232,7 +232,7 @@ class Inspection_data:
         #Longitude/Easting: n/a / 710594.426 m
         df = self.df_joints.copy()
         ## utm.to_latlon() function may change the Y value, use df = self.df_joints.copy() instead
-        LL=utm.to_latlon(df.X.to_numpy(),df.Y.to_numpy(),df.gridzone.iloc[0],self.grid_letter)  
+        LL=utm.to_latlon(df.X.to_numpy()*1.1,df.Y.to_numpy()*1.1,df.gridzone.iloc[0],self.grid_letter)  
         LL_mean = np.mean(LL,1)
         m = folium.Map(LL_mean, zoom_starts = 5)
         
@@ -260,7 +260,7 @@ class Inspection_data:
             critic = (self.df_Def["ERF"] > ERF_min) & (self.df_Def["d"] > d_min)
             df=self.df_Def.copy().loc[critic]
             
-            LL=utm.to_latlon(df.X.to_numpy(),df.Y.to_numpy(),df.gridzone.iloc[0],self.grid_letter)
+            LL=utm.to_latlon(df.X.to_numpy()*1.1,df.Y.to_numpy()*1.1,df.gridzone.iloc[0],self.grid_letter)
 
             ############################################################
             # ................................... geopandas
@@ -281,6 +281,8 @@ class Inspection_data:
             gdf['color'] = gdf['ERF'].fillna(0).apply(colormap)
             gdf['radii'] = gdf['d']/2+50 #(gdf['L']**.5)
             # m = folium.Map(location=[(gdf.geometry.y).mean(), (gdf.geometry.x).mean()], zoom_start=4)
+            
+            name2=name + "Defects GeoData"
             folium.GeoJson(gdf, 
                            marker=folium.Circle(radius=4, fill_color="orange", fill_opacity=0.2, color="black", weight=0),
                            tooltip=folium.GeoJsonTooltip(fields=["feature", "ERF", "d", "L", "Lat","Long"]),
@@ -291,8 +293,6 @@ class Inspection_data:
                                 },
                            highlight_function=lambda x: {"fillOpacity": 0.1},# x['properties']['ERF']},
                            zoom_on_click=True,
-
-                           name2=name + "Defects GeoData"
                            ).add_to(m)
             # folium.GeoJson(gdf, 
             #                marker=folium.Marker(
@@ -315,10 +315,10 @@ class Inspection_data:
             #     gdf,
                     
             
-            
-        if save_m:
-            m.save(name2+'.html')
-            print("saved Pipi_Defects: "+name)
+                
+            if save_m:
+                m.save(name2+'.html')
+                print("saved Pipi_Defects: "+name)
         
         return m
        
