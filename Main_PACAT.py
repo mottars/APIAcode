@@ -409,4 +409,4 @@ if plotson:
         plt.colorbar(im, cax=cax)  
         plt.savefig('CGR.png', dpi=400)
     
-BIR.Criar_Relatorio(file_name = 'Relatorio_de_Inspecao{dates[-1]}.docx', insp=Insps[-1])
+BIR.Criar_Relatorio(file_name = f'Relatorio_de_Inspecao{dates[-1]}.docx', insp=Insps[-1])
