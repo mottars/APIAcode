@@ -17,6 +17,8 @@ import numpy as np
 from python_scripts import main_pipe_normas as sempiric
 import copy
 
+import Build_Inspction_Report as BIR
+
 # import Sistema_Cordut.Risk_Module as risk
 # from python_scripts import main_pipe_normas as sempiric
 # import Sistema_Cordut.main_pipe_normas as semi_empiric
@@ -33,10 +35,12 @@ relib_ana = 1
 # Geolocalização
 Plot_Map = 1
 plot_seaborn = 1
+planar_plot = 1
+longi_plot = 1
 time_variable=0
 plotson = 1
 plot_CGR = 0
-plot_match = 1
+plot_match = 0
 plot_ispecs = 1
 plot_hight = 1
 plot_hist = 1
@@ -45,11 +49,13 @@ test_Z = 0
 
 surce_dir = os.curdir+os.sep+'Files'
 
-spreadsheet_names = ['PEN-SCA 2006 resumo.csv',
+spreadsheet_namesi = ['PEN-SCA 2006 resumo.csv',
                     'PEN-SCA 2014 resumo.csv',
                     'PEN-SCA 2017 resumo.xlsx']
-dates = [2006, 2014,  2017]
+datesi = [2006, 2014,  2017]
 
+spreadsheet_names = spreadsheet_namesi[2:3]
+dates = datesi[2:3]
 
 OD = 32*25.4
 
@@ -65,12 +71,19 @@ Accuracy=0.1
 min_CGR = 0.1
 max_CGR = 1.2
 
-# future assessment 
-dt = 5 # years
 
-# Matching between inpections
-ij=[0,1]
-
+if plot_match:
+    # future assessment 
+    dt = 5 # years
+    
+    # Matching between inpections
+    ij=[0,1]
+else:
+    if isinstance(dates,list):
+        ij=range(len(dates))
+    else:
+        ij=[0]
+    
 debugon = False
 XY0 = []
 
@@ -108,29 +121,33 @@ if debugon: print('UTM coordinate: ', df_Def.gridzone_name.iloc[0], ' S ',df_Def
 
 
 ##########################################################################
-# Matching procedure (between "ij" inspection)
-match_Ins0, match_Ins1 = itools.matching(Insps, ij, debugon = False)
-print('Defect Matching occurence: ', len(match_Ins1), '/',len(Insps[ij[1]].df_Def))
-
-##########################################################################
-# Corrosion Growth Rate calculation (between "ij" inspection)
-CGR, CGRp = itools.CGR_Comput(Insps,ij, match_Ins0, match_Ins1, min_CGR=min_CGR, max_CGR=max_CGR)
-Insps[ij[-1]].add_CGR(CGR, CGRp, min_CGR , max_CGR)
-
-##########################################################################
 # Cluster Identification for last inspection
 Insps[-1].Identify_Cluster( col_names , debugon = False)
 
 
-#########################################################################
-##########################################################################
-# Future Defect sizes  (between "ij" inspection)
-##########################################################################
-# future data creation
-Insps.append(copy.deepcopy(Insps[ij[-1]]))
-# Dates from inspection used to predict future 
-Dates=[Insps[i].date for i in ij]
-Insps[-1].Future_def(Dates, dt, debugon = debugon)
+if plot_match:
+    ##########################################################################
+    # Matching procedure (between "ij" inspection)
+
+    match_Ins0, match_Ins1 = itools.matching(Insps, ij, debugon = False)
+    print('Defect Matching occurence: ', len(match_Ins1), '/',len(Insps[ij[1]].df_Def))
+
+    ##########################################################################
+    # Corrosion Growth Rate calculation (between "ij" inspection)
+    CGR, CGRp = itools.CGR_Comput(Insps,ij, match_Ins0, match_Ins1, min_CGR=min_CGR, max_CGR=max_CGR)
+    Insps[ij[-1]].add_CGR(CGR, CGRp, min_CGR , max_CGR)
+
+    
+    
+    #########################################################################
+    ##########################################################################
+    # Future Defect sizes  (between "ij" inspection)
+    ##########################################################################
+    # future data creation
+    Insps.append(copy.deepcopy(Insps[ij[-1]]))
+    # Dates from inspection used to predict future 
+    Dates=[Insps[i].date for i in ij]
+    Insps[-1].Future_def(Dates, dt, debugon = debugon)
 
 
 
@@ -187,7 +204,7 @@ if relib_ana==1:
 
 if plot_seaborn:
     # plot_seaborns(Inspection,  col_names,ij =[0,1], XY0=[], min_joint_dist = 0.5):
-    itools.plot_seaborns(Insps, col_names,ij)
+    itools.plot_seaborns(Insps, col_names,ij,plot_match, planar_plot = planar_plot, longi_plot = longi_plot )
     # print ("end")
 
 if time_variable:
@@ -285,6 +302,7 @@ if plotson:
         plt.title('Depth Distribution')
         plt.xlabel('depth')
         plt.ylabel('frequence')
+        plt.savefig('Depth_histogram.png', dpi=400)
     
     if plot_hight:
         df = Insps[0].df_Def
@@ -299,6 +317,7 @@ if plotson:
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.05)
         plt.colorbar(im, cax=cax)
+        plt.savefig('Features_position.png', dpi=400)
     
     if plot_ispecs:
         markers = ['o','+', 'x', '>', '.', 's']
@@ -324,6 +343,8 @@ if plotson:
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.05)
         plt.colorbar(im, cax=cax)
+        plt.savefig('Metal_Loss_position.png', dpi=400)
+        
     #plt.figure()
     
     ##########################################################
@@ -357,6 +378,7 @@ if plotson:
         plt.title(['Match position '])
         plt.xlabel('Easting')
         plt.ylabel('Norting')
+        plt.savefig('Match_position.png', dpi=400)
         
         # divider = make_axes_locatable(ax)
         # cax = divider.append_axes("right", size="5%", pad=0.05)
@@ -385,4 +407,6 @@ if plotson:
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.05)
         plt.colorbar(im, cax=cax)  
+        plt.savefig('CGR.png', dpi=400)
     
+BIR.Criar_Relatorio(file_name = 'Relatorio_de_Inspecao{dates[-1]}.docx', insp=Insps[-1])

@@ -21,8 +21,6 @@ import utm
 import geopandas as geopd
 import branca.colormap as cm
 
-   
-
 
 class Inspection_data:
     def __init__(self, file_name, date, OD, surce_dir='',future=False, grid_letter='J', sige = 485, sigu = 565, MAOP = 10, Insp_type = 'MFL',Confid_level=0.85, Accuracy=0.1, acc_rel =-1):

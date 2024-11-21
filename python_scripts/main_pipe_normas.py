@@ -191,7 +191,7 @@ def bs7910gMod(D,t,L,d,sige,sigu,thicks=0):
     
     if(D and t and L and d and sige):
         M = (1+0.31*(L**2/(D*t)))**.5
-        Sf = (sige+sigu)/2
+        # Sf = (sige+sigu)/2
         #s2 = S*(1-d/t)/(1-d/t/M)
         P0 = sigu*2*t/(D-t)
         pf=P0*(1-d/t)/(1-d/t/M)
