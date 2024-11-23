@@ -33,6 +33,8 @@ estilo_tabela = 'Light Grid Accent 1'
 def configuraTexto(doc, texto,  titulo = False, iten=0):
 
     if titulo:
+        # Seção
+        # doc.section ?
         texto_formatado=texto
         if iten:
             num_topico = doc.sections_num
@@ -53,6 +55,7 @@ def configuraTexto(doc, texto,  titulo = False, iten=0):
         paragrafo.runs[0].font.size = Pt(tamanho_fonte_titulo)
         paragrafo.runs[0].font.bold = True
     else:
+        # NORMAL
         paragrafo = doc.add_paragraph(texto)
         paragrafo.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
         paragrafo.runs[0].font.name = fonte_name
