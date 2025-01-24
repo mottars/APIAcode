@@ -65,11 +65,14 @@ class Inspection_data:
             df = pd.read_excel(self.surce_dir+os.sep+spreadsheet_name,   )
         
         print(spreadsheet_name)
-        print("Raw Data Frame size: ",sys.getsizeof(df))
-        # print(df['event / comment'])
+        if debugon: print("Raw Data Frame size: ",sys.getsizeof(df))
+        df=itools.skp_header(df,debugon)
+        print("New Raw Data Frame size: ",sys.getsizeof(df))
+        if debugon: print("Columns = ",df.columns.values)
         
         Labels = df.columns.values
         col_names, Corrosion_comment = itools.get_spreadsheet_labels(Labels)
+        if debugon: print("Columns setted = ",col_names)
         df_Def, i_def, df_joints, i_joints, col_names, df, XY0 = itools.pre_proc_df(df,col_names, Corrosion_comment,XY0)
         
         
@@ -82,7 +85,7 @@ class Inspection_data:
         if debugon: print("DFml size: ",sys.getsizeof(df_Def))
         
         # depth_name, def_len_name , def_w_name,t_name , Y_name , X_name  ,H_name , gridzone_name , tube_num_name , tube_len_name , weld_dist_name , Z_pos_name , circ_pos_name , surf_pos_name , ERF_name , feature_name = col_names 
-      
+        
         return XY0, col_names
     
     def add_CGR(self, CGR, CGRp, min_CGR = 0.1, max_CGR = 1.2 , debugon = False):
@@ -145,6 +148,7 @@ class Inspection_data:
         self.df_Def['MSOP'] = MSOP
         self.df_Def['ERF'] = MAOP/MSOP
         
+        print('VER -> itools.def_critical_limits(dp,t,D,sige, MAOP)')
         dp_max, Llim = itools.def_critical_limits(dp,t,D,sige, MAOP)
         
         self.df_Def['L max'] = Llim*1000
@@ -219,7 +223,7 @@ class Inspection_data:
         
     ##############
     # MAPs
-    def plot_map(self, name='', plot_joint=True, plot_defect=True, ERF_min=0.0, ERF_max=1.0, d_min=0.0, save_m=True):
+    def plot_map(self, name='', plot_joint=True, plot_defect=True, ERF_min=0.8, ERF_max=1.0, d_min=0.0, save_m=True):
 
         if len(name)==0:
             name = self.file_name+'_Map'
@@ -230,7 +234,17 @@ class Inspection_data:
         #Longitude/Easting: n/a / 710594.426 m
         df = self.df_joints.copy()
         ## utm.to_latlon() function may change the Y value, use df = self.df_joints.copy() instead
-        LL=utm.to_latlon(df.X.to_numpy()*1.1,df.Y.to_numpy()*1.1,df.gridzone.iloc[0],self.grid_letter)  
+        
+        
+        [gn, gl, get_gl]=itools.gridzone_set(df.gridzone.iloc[0], self.grid_letter)
+        if get_gl:
+            gl = self.grid_letter
+        else:
+            self.grid_letter = gl
+            
+        LL=utm.to_latlon(df.X.to_numpy(),df.Y.to_numpy(),int(gn),gl)
+        print(LL)
+        
         LL_mean = np.mean(LL,1)
         m = folium.Map(LL_mean, zoom_starts = 5)
         
@@ -255,10 +269,25 @@ class Inspection_data:
         ############################################################
         # Plot Defs in map ##############################################
         ############################################################
-            critic = (self.df_Def["ERF"] > ERF_min) & (self.df_Def["d"] > d_min)
+            
+            mn_erf =  np.min ([ np.mean (self.df_Def["ERF"] ), ERF_min])
+            mx_erf = np.max (self.df_Def["ERF"] )
+            ERF_crt = np.min ( [np.round((mx_erf+mn_erf)/2,2), ERF_min])
+            
+            print(ERF_crt, mx_erf, mn_erf)
+            
+            critic = (self.df_Def["ERF"] > ERF_crt) & (self.df_Def["d"] > d_min)
             df=self.df_Def.copy().loc[critic]
             
-            LL=utm.to_latlon(df.X.to_numpy()*1.1,df.Y.to_numpy()*1.1,df.gridzone.iloc[0],self.grid_letter)
+            print(len(df))
+            
+            df_crt = df.copy()
+            
+            [gn, gl, get_gl]=itools.gridzone_set(df.gridzone.iloc[0], self.grid_letter)
+            if get_gl:
+                gl = self.grid_letter
+            
+            LL=utm.to_latlon(df.X.to_numpy(),df.Y.to_numpy(),int(gn),gl)
 
             ############################################################
             # ................................... geopandas
@@ -272,7 +301,7 @@ class Inspection_data:
             # gdf=gfd.assign('radius' = ['d'])
             
             # ERFmin = gdf['ERF'].min()
-            colormap= cm.LinearColormap(["blue", "green", "yellow", "red", "darkred"], vmin=ERF_min, vmax=1.0,
+            colormap= cm.LinearColormap(["blue", "green", "yellow", "red", "darkred"], vmin=ERF_crt, vmax=1.0,
                                         caption="ERF")
             
             gdf['ERF']=gdf['ERF'].fillna(0.3)
@@ -318,6 +347,6 @@ class Inspection_data:
                 m.save(name2+'.html')
                 print("saved Pipi_Defects: "+name)
         
-        return m
+        return m, df_crt
        
 ##########################################################################

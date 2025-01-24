@@ -16,7 +16,7 @@ from docx.shared import Cm, Pt
 from PIL import Image
 import math
 
-from docx2pdf import convert
+# from docx2pdf import convert
 
 #parâmetros globais
 tamanho_fonte_titulo = 15

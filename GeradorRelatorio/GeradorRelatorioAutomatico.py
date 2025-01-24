@@ -30,7 +30,8 @@ def configuraTabela(doc, tabela, linhas, colunas, titulo_unico,  altura_linha = 
 				try:
 					tabela.rows[i].cells[j].paragraphs[0].runs[0].font.name = 'Times New Roman'
 					if negrito == False and i != 0:
-                                                tabela.rows[i].cells[j].paragraphs[0].runs[0].font.bold = False
+                        a=1
+                        tabela.rows[i].cells[j].paragraphs[0].runs[0].font.bold = False
 				except:
 					print('erro')
 				try:
@@ -58,9 +59,10 @@ def configuraImagem(doc, arquivo,  legenda = None, flag_tam = None):
 	paragrafo.alignment = WD_ALIGN_PARAGRAPH.CENTER
 	run_imagem = paragrafo.add_run()
 	if flag_tam != None:
-                run_imagem.add_picture(arquivo, width=Cm(16), height=Cm(12))
-        else:
-                run_imagem.add_picture(arquivo)
+
+        run_imagem.add_picture(arquivo, width=Cm(16), height=Cm(12))
+    else:
+        run_imagem.add_picture(arquivo)
 	print('certo legenda')
 	if legenda is not None:
 		print('certo legenda_2')

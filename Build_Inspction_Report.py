@@ -134,7 +134,6 @@ def Criar_Relatorio(file_name = 'Relatorio_de_Inspecao.docx', insp=[]):
     ######## INICIO ########
     ##############################################################################
     
-    
     #organizadores gerais do relatório
     num_tabela = 1
     num_figura = 1
@@ -157,7 +156,7 @@ def Criar_Relatorio(file_name = 'Relatorio_de_Inspecao.docx', insp=[]):
     f'Data da análise: {date.today()}',
     f'Inspeção atual: {insp.date}',
     'Inspeção anterior: [Informar ano e método de ILI, se aplicável]',
-    f'Comprimento total analisado: {insp.df_joints.S_pos[njoint]} m',
+    f'Comprimento total analisado: {insp.df_joints.S_pos.iloc[-1]} m',
     f'Número de juntas analisadas: {njoint}',
     f'Total de anomalias detectadas: {len(insp.df_Def)}'
     ]
@@ -177,8 +176,6 @@ def Criar_Relatorio(file_name = 'Relatorio_de_Inspecao.docx', insp=[]):
     
     doc = configuraTexto(doc, 'Descrição do duto', True, 2)
     doc = configuraTexto(doc, '[incluir texto sobre o duto]')
-    
-    
         
     fign=0
     fig_list = [
@@ -269,12 +266,12 @@ def Criar_Relatorio(file_name = 'Relatorio_de_Inspecao.docx', insp=[]):
         iten, tt=get_section_level(txt)
         if iten:
             doc = configuraTexto(doc, tt,True, iten)
-            
+        
         else:
             if txt.startswith('Fig'):
                 paragrafo = doc.add_paragraph()
                 run_imagem = paragrafo.add_run()
-                run_imagem.add_picture(fig_list[fign]) #, width=Cm(16))
+                run_imagem.add_picture(fig_list[fign], width=Cm(16))
                 fign+=1
             doc = configuraTexto(doc, tt)
         

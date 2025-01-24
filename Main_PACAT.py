@@ -84,7 +84,8 @@ else:
     else:
         ij=[0]
     
-debugon = False
+# debugon = False
+debugon = True
 XY0 = []
 
 # class struct_data:
@@ -115,9 +116,9 @@ for i_insp in range(n_inp):
     col_names.append(coln)
 
 print('N of defects\date: ', [[len(i.df_Def), i.date] for i in Insps])
-# depth_name, def_len_name , def_w_name,t_name , Y_name , X_name  ,H_name , gridzone_name , tube_num_name , tube_len_name , weld_dist_name , Z_pos_name , circ_pos_name , surf_pos_name , ERF_name , feature_name = col_names
+
 df_Def = Inspi.df_Def
-if debugon: print('UTM coordinate: ', df_Def.gridzone_name.iloc[0], ' S ',df_Def.X_name.iloc[0], df_Def.Y_name.iloc[0])
+if debugon: print('UTM coordinate: ', df_Def.gridzone.iloc[0], ' S ',df_Def.X.iloc[0], df_Def.Y.iloc[0])
 
 
 ##########################################################################

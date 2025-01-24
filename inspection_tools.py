@@ -13,7 +13,6 @@ from collections import Counter
 import matplotlib.cm as mcm
 
 
-
 #############################################
 # Match between joint position using LCRS algorithm
 # Monotonic_Real_Sequences_Intersection
@@ -21,8 +20,26 @@ from Algorithms import MRSI_3D
 from python_scripts import main_pipe_normas as sempiric
 
 debugon = False
-def get_spreadsheet_labels(Labels):
+
+def skp_header(df, debugon = False):
+    if any (df.columns.str.contains('^Unnamed:')):
+
+        max_columns =len(df.columns.values)
+        if debugon: print("N Columns = ",max_columns)
+        
+        for ind, row in df.iterrows():
+            if row.count() == max_columns:
+                strt_row=ind
+                if debugon: print("Start_row = ",ind)
+                break
+        df.columns = df.iloc[strt_row]
+        if debugon: print("Columns = ",df.columns)
     
+        # Drop rows above the start_row
+        df = df.iloc[strt_row + 1:].reset_index(drop=True)
+    return df
+
+def get_spreadsheet_labels(Labels, debugon = False):
     
     #################################################
     # Procurar labels pre-determinados?????????
@@ -39,7 +56,11 @@ def get_spreadsheet_labels(Labels):
     
     #################################################
     # Find those automatically ???
+    
+    if debugon: print("Columns = ",Labels)
+    if debugon: print("Columns type = ",Labels[0])
     if Labels[0].lower() == 'log dist. [m]'.lower():
+        # 2006
         depth_col = 'depth [%]'
         def_len_col = 'length [mm]'
         def_w_col = 'width [mm]'
@@ -109,13 +130,12 @@ def get_spreadsheet_labels(Labels):
             'MELO-CORR']
 
         
-    else:
+    elif Labels[0].lower() == '#':
         # 2017
         #'#' 'Joint number' 'Pipe length, m' 'Relative distance, m'
  # 'Absolute distance, m' 'Comments' 'Depth, %WT/OD' 'Length, mm'
  # 'Width, mm' 'WT, mm' 'Orientation, hrs : mins' 'Wall side'
  # 'ERF (B31G and BS 7910)' 'Easting, m' 'Northing, m' 'Height, m'
-        if debugon: print("Columns: ", Labels)
         depth_col = 'Depth, %WT/OD'
         def_len_col = 'Length, mm'
         def_w_col = 'Width, mm'
@@ -141,6 +161,35 @@ def get_spreadsheet_labels(Labels):
         Corrosion_comment = ['metal loss', 'metal loss (grouped)']
         
     
+    elif Labels[0].lower() == 'ID Junta\nAnterior'.lower():
+        # New Pipeway
+        depth_col = 'Prof.\n(%)'
+        def_len_col = 'Compr.\n(mm)'
+        def_w_col = 'Larg.\n(mm)'
+        t_col = 'Esp.\n(mm)'
+        
+        #Georeferencing
+        Y_col = 'Northing\n(m)'
+        X_col = 'Easting\n(m)'
+        H_col = 'Height\n(m)'
+        gridzone_col = 'Zone'
+        
+        #Pipe position
+        tube_num_col = 'ID Junta\nAnterior'
+        tube_len_col = 'Compr.\nTubo\n(m)'
+        weld_dist_col = 'Dist. Sld.\nAnt.\n(m)'
+        Z_pos_col = 'Posição\n(m)'
+        circ_pos_col = 'Posição\nHorária\n(hh:mm)'
+        surf_pos_col = 'I/E'
+        
+        #Others
+        ERF_col = 'ERF'
+        feature_col = 'Descrição'
+        Corrosion_comment = ['CORR']
+        
+    else:
+        print('set columns', Labels)
+        print('in def get_spreadsheet_labels(Labels):')
     #################################################
     
     col_names  = [depth_col, def_len_col , def_w_col,t_col , X_col  , Y_col , H_col , gridzone_col , tube_num_col , tube_len_col , weld_dist_col , Z_pos_col , circ_pos_col , surf_pos_col , ERF_col , feature_col ]
@@ -183,10 +232,19 @@ def pre_proc_df(df,col_names, Corrosion_comment,XY0=[], debug_on = False):
     
     col_names = standard_col_names
     depth_col, def_len_col , def_w_col,t_col , X_col  ,Y_col , H_col , gridzone_col , tube_num_col , tube_len_col , weld_dist_col , Z_pos_col , circ_pos_col , surf_pos_col , ERF_col , feature_col = col_names 
-
+    
+    numerical_cols = ['d', 'L', 'W', 't', 'X', 'Y', 'H', 'tube_num', 'tube_len', 'ref_dist', 'Z_pos', 'ERF']
+    df[numerical_cols] = df[numerical_cols].apply(pd.to_numeric, errors='coerce')
+    
+    df = df.dropna(subset='X')
+    
     if not gridzone_col in df.columns:
         df[gridzone_col]=22
-
+        
+    print('df Filtrate = ')
+    print(df[col_names])
+    
+    
     #################################################
     # Create S position (absolut in-line length) xxxxxxxxxxxx
     # Filing blank spaces (with NaN): tube number, thicks, tube_len.
@@ -194,7 +252,7 @@ def pre_proc_df(df,col_names, Corrosion_comment,XY0=[], debug_on = False):
     #Add real positions S
     n_df = len(df)
     
-    if len(XY0)==0: XY0 = [df.X[0],df.Y[0], df.H[0]]
+    if len(XY0)==0: XY0 = [df.X.iloc[0],df.Y.iloc[0], df.H.iloc[0]]
     
     X = list(df.X)
     Y = list(df.Y)
@@ -208,36 +266,49 @@ def pre_proc_df(df,col_names, Corrosion_comment,XY0=[], debug_on = False):
     current_t = 0
     joint_pos=[]
     section_len[0] = ((X[0]-XY0[0])**2+(Y[0]-XY0[1])**2+(Z[0]-XY0[2])**2)**.5
+    current_tube_num = 0
+    j0=0
     for i in range(n_df-1):
+        j=df.index[i]
         dx = X[i+1]-X[i]
         dy = Y[i+1]-Y[i]
         dz = Z[i+1]-Z[i]
         section_len[i+1] = (dx**2+dy**2+dz**2)**.5
+        if i>1:
+            
+            # Copy tube number and length if it's empty
+            # if np.isnan(df.tube_len[j]):
+            #     df.loc[j,tube_num_col] = df.tube_num[j0]
+            #     df.loc[j,tube_len_col] = df.tube_len[j0]
+            if df.tube_num[j] != current_tube_num:
+                if ~np.isnan(pd.to_numeric(df.tube_num[j])):
+                    current_tube_num = df.tube_num[j]
+                    joint_pos.append(j)
+                    j0 = j
+            
         
         # Filling tube number
-        if ~np.isnan(df.tube_len[i]):
-            joint_pos.append(i)
-            current_tub_num = df.tube_num[i]
-            current_tub_len = df.tube_len[i]
+        if ~np.isnan(df.tube_len[j]):
+            # joint_pos.append(j)
+            current_tub_num = df.tube_num[j]
+            current_tub_len = df.tube_len[j]
             # if np.isnan(current_tub_len):
             #     print(i)
             #     print(current_tub_num)
             #     print(current_tub_len)
             
         else:
-            idx = df.index[i]
-            df.loc[idx,tube_num_col] = current_tub_num
-            df.loc[idx,tube_len_col] = current_tub_len
+            df.loc[j,tube_num_col] = current_tub_num
+            df.loc[j,tube_len_col] = current_tub_len
             # print(idx)
             # print(current_tub_len)
 
         # Filling Thicks
-        if ~np.isnan(df[t_col][i]):
-            current_t = df[t_col][i]
+        if ~np.isnan(df[t_col][j]):
+            current_t = df[t_col][j]
             
         else:
-            idx = df.index[i]
-            df.loc[idx,t_col] = current_t
+            df.loc[j,t_col] = current_t
         
         
     S_pos = np.cumsum(section_len) #+ df['Z_pos'][0]
@@ -247,7 +318,11 @@ def pre_proc_df(df,col_names, Corrosion_comment,XY0=[], debug_on = False):
 
     ###########################################################
     ## Filtering ML (Metal Loss) data frame
-    df_Def=df.drop(df[np.isnan(df.d)].index)
+    
+    df.d = pd.to_numeric(df.d, errors='coerce')
+    df_Def = df.dropna(subset='d')
+    
+    # df_Def=df.drop(df[np.isnan(df.d)].index)
     
     # if debug_on:
     plt.figure()
@@ -260,7 +335,7 @@ def pre_proc_df(df,col_names, Corrosion_comment,XY0=[], debug_on = False):
     # Giving the tilte for the plot
     # Inspection[-1].file_col
     plt.title('Features with ML (depth) data')
-    plt.savefig('anomalies_histogram.png', dpi=400)
+    plt.savefig('anomalies_histogram.png', dpi=300)
     # plt.figure()
     # plt.hist(df_Def[feature_col])
     
@@ -311,6 +386,10 @@ def pre_proc_df(df,col_names, Corrosion_comment,XY0=[], debug_on = False):
 
     joint_items = ['S_pos', Y_col , X_col  ,H_col , gridzone_col, t_col, tube_num_col , tube_len_col , Z_pos_col , feature_col ]
     df_joints=df_joints.filter(items=joint_items)
+    
+    
+    # df.d = pd.to_numeric(df.d, errors='coerce')
+    
     i_joints = list(df[(~np.isnan(df.tube_num))].index)
     if debugon: print('colums: ', df_joints.columns.values)    
     
@@ -670,6 +749,22 @@ def comput_MSOP(D,t,dp,L,sige,sigu, unit = 'MPa', method=sempiric.modifiedb31g):
 
 ##################################################
 
+def  gridzone_set(gridzone, grid_l):
+
+
+    g = gridzone
+    gl=''
+    if isinstance(g, str):
+        gn = ''.join([char for char in g if char.isdigit()])
+        gl = ''.join([char for char in g if char.isalpha()])
+    else:
+        gn = g
+    
+    get_gl = (gl == '')
+    
+    return gn, gl, get_gl
+
+
 ##################################################
 import seaborn as sns
 # import matplotlib.cm as mcm
@@ -712,7 +807,7 @@ def compare_ERF_ProbF(Inspection):
         DF['d'] = Inspection[i].df_Def['d'][sel]
         DF['L'] = Inspection[i].df_Def['L'][sel]
         
-        fig, ax = plt.subplots(dpi=400)
+        fig, ax = plt.subplots(dpi=300)
         # sns.set_theme()
         sns.set_style('whitegrid')
         # sns.set_style('darkgrid', {"grid.color": ".6", 'xtick.bottom': True,'ytick.left': True} )
@@ -729,7 +824,7 @@ def compare_ERF_ProbF(Inspection):
         plt.xscale('log')
         plt.legend( loc='lower left',bbox_to_anchor=(1.05, 0))
         plt.title(tt)
-        plt.savefig(tt+'.png', dpi=400)
+        plt.savefig(tt+'.png', dpi=300)
 
 def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joint_dist = 0.5, planar_plot = 1, longi_plot = 0):
     
@@ -776,6 +871,7 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
     dfg['MSOP [bar]'] = Inspection[i].df_Def['MSOP']*10
     dfg['ERF'] = Inspection[i].df_Def['ERF']
     dfg['t (mm)'] = Inspection[i].df_Def.t
+    # dfg['Surface Position'] = Inspection[i].df_Def.d
     
     dfg['Max Safety d [%]'] = Inspection[i].df_Def['Max Safety d [%]']*100
     dfg['Critical Length '] = Inspection[i].df_Def['L max']
@@ -836,7 +932,7 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
             plt.plot(Xpl, Ypl)
        
     
-        plt.savefig('Geo_Loc.png', dpi=400)
+        plt.savefig('Geo_Loc.png', dpi=300)
         
         #sns.scatterplot
         
@@ -846,50 +942,53 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
         # plt.plot(Xpl, Ypl)
     
     df_jd=dfg.drop(dfg[np.isnan(dfg['Defect on Joints'])].index)
+    # idx = dfg.index[dfg['t (mm)']<12]
+    # dfg2 = dfg.loc[idx]
     idx = dfg.index[dfg['t (mm)']<12]
     dfg2 = dfg.loc[idx]
+    
     
     if longi_plot:
         plt.figure()
         sns.relplot(x='Log. dist [km]', y='Clock Position', size ="length [mm]", hue ='depth[%]',
-                sizes=(fig_size*6, fig_size*120), alpha=.7, palette=cmap ,
+                sizes=(fig_size*6, fig_size*120), alpha=.7, edgecolor=None,  palette=cmap ,
                 height=fig_size, data=dfg, aspect =2 )
         plt.title('Defects Clock Position')
-        plt.savefig('Defects_Clock_Position.png', dpi=400)
+        plt.savefig('Defects_Clock_Position.png', dpi=300)
         
         sns.relplot(x='Log. dist [km]', y='depth[%]', size ="length [mm]",
-                sizes=(fig_size*6, fig_size*120), alpha=.7, palette=cmap ,
+                sizes=(fig_size*6, fig_size*120), alpha=.7, edgecolor=None,  palette=cmap ,
                 height=fig_size, data=dfg, aspect =2 )
         plt.title('Defects Sizes')
-        plt.savefig('Defects_Sizes.png', dpi=400)
+        plt.savefig('Defects_Sizes.png', dpi=300)
         
         if plot_match:
             sns.relplot(x='Log. dist [km]', y='depth[%]', hue ='CGR[mm]', size ="length [mm]",
-                    sizes=(fig_size*6, fig_size*120), alpha=.7, palette=cmap ,style = 'Match',
+                    sizes=(fig_size*6, fig_size*120), alpha=.7, edgecolor=None,  palette=cmap ,style = 'Match',
                     height=fig_size, data=dfg, aspect =2 )
         
         sns.relplot(x='Log. dist [km]', y='depth[%]', hue ='Cluster #', size ="length [mm]",
-                sizes=(fig_size*6, fig_size*120), alpha=.7, palette=cmap , style = 'Cluster defs',
+                sizes=(fig_size*6, fig_size*120), alpha=.7, edgecolor=None,  palette=cmap , style = 'Cluster defs',
                 height=fig_size, data=dfg, aspect =2 )
         plt.title('Defects Clusters')
-        plt.savefig('Defects_Clusters.png', dpi=400)
+        plt.savefig('Defects_Clusters.png', dpi=300)
         
-        sns.relplot(x='Log. dist [km]',y='depth[%]' , hue ='Relative Dist. [m]', size ="length [mm]",
-                sizes=(fig_size*6, fig_size*120), alpha=.7, palette=cmap , style = 'Defect Tube Position',
+        sns.relplot(x='Relative Dist. [m]',y='depth[%]' , hue ='Log. dist [km]', size ="length [mm]",
+                sizes=(fig_size*6, fig_size*120), alpha=.7, edgecolor=None,  palette=cmap , style = 'Defect Tube Position',
                 height=fig_size, data=dfg, aspect =2 )
         
-        plt.plot(df_jd['Log. dist [km]'],df_jd['Relative Dist. [m]']*0,marker='x',linewidth=0)
+        # plt.plot(df_jd['Log. dist [km]'],df_jd['Relative Dist. [m]']*0,marker='x',linewidth=0)
         plt.title('Defects Joint Position')
-        plt.savefig('Joint_Position.png', dpi=400)
+        plt.savefig('Joint_Position.png', dpi=300)
         
         if plot_match:
             sns.relplot(x='Relative Dist. [m]', y='depth[%]', hue ='CGR[mm]', size ="length [mm]",
-                    sizes=(fig_size*6, fig_size*120), alpha=.7, palette=cmap , style = 'Defect Tube Position',
+                    sizes=(fig_size*6, fig_size*120), alpha=.7, edgecolor=None,  palette=cmap , style = 'Defect Tube Position',
                     height=fig_size, data=dfg, aspect =2 )
         
         
         # sns.relplot(x='Log. dist [km]', y='Relative Dist. [m]', size= 'depth[%]',   hue ="length [mm]",
-        #         sizes=(fig_size*6, fig_size*120), alpha=.7, palette=cmap , style = 'Defect on Joints',
+        #         sizes=(fig_size*6, fig_size*120), alpha=.7, edgecolor=None,  palette=cmap , style = 'Defect on Joints',
         #         height=fig_size, data=dfg, aspect =2 )
         # plt.ylim(0,1)
         
@@ -899,61 +998,67 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
         
         sns.relplot(x='Log. dist [km]', y='MSOP [bar]', size ="length [mm]", hue ='depth[%]',
                 sizes=(fig_size*6, fig_size*120), alpha=.7, palette=cmap , style =  't (mm)',
-                height=fig_size, data=dfg, aspect =2 )
-        plt.plot(df_jd['Log. dist [km]'],df_jd['Relative Dist. [m]']*0+MAOP,linewidth=6)
+                height=fig_size, data=dfg, aspect =2 , edgecolor=None)
+        plt.plot(df_jd['Log. dist [km]'],df_jd['Relative Dist. [m]']*0+MAOP,linewidth=2)
         plt.title('Defects ASSESSMENT')
-        plt.savefig('Defects_ASSESSMENT.png', dpi=400)
+        plt.savefig('Defects_ASSESSMENT.png', dpi=300)
         
-        sns.relplot(x='Log. dist [km]', y='ERF', size ="length [mm]", hue ='depth[%]',
+        ax = sns.relplot(x='Log. dist [km]', y='ERF', size ="length [mm]", hue ='depth[%]',
                 sizes=(fig_size*6, fig_size*120), alpha=.7, palette=cmap , style =  't (mm)',
-                height=fig_size, data=dfg, aspect =2 )
-        plt.plot(df_jd['Log. dist [km]'],df_jd['Relative Dist. [m]']*0+1,linewidth=6)
+                height=fig_size, data=dfg, aspect =2, edgecolor=None )
+        plt.plot(df_jd['Log. dist [km]'],df_jd['Relative Dist. [m]']*0+1,linewidth=2)
         plt.title('Defects ERF')
-        plt.savefig('Defects_ERF.png', dpi=400)
+        sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
+        plt.savefig('Defects_ERF.png', dpi=300)
         
         
         sns.relplot(x='Log. dist [km]', y='MSOP [bar]', size ="length [mm]", hue ='depth[%]',
-                sizes=(fig_size*6, fig_size*120), alpha=.7, palette=cmap , style =  't (mm)',
+                sizes=(fig_size*6, fig_size*120), alpha=.7, edgecolor=None,  palette=cmap , style =  't (mm)',
                 height=fig_size, data=dfg2, aspect =2 )
-        plt.plot(df_jd['Log. dist [km]'],df_jd['Relative Dist. [m]']*0+MAOP*10,linewidth=6)
+        plt.plot(df_jd['Log. dist [km]'],df_jd['Relative Dist. [m]']*0+MAOP*10,linewidth=2)
         plt.title('Defects_MSOP')
-        plt.savefig('Defects_MSOP.png', dpi=400)
+        plt.savefig('Defects_MSOP.png', dpi=300)
         
         sns.relplot(x='Log. dist [km]', y='ERF', size ="length [mm]", hue ='depth[%]',
-                sizes=(fig_size*6, fig_size*120), alpha=.7, palette=cmap , style =  't (mm)',
+                sizes=(fig_size*6, fig_size*120), alpha=.7, edgecolor=None,  palette=cmap , style =  't (mm)',
                 height=fig_size, data=dfg2, aspect =2 )
-        plt.plot(df_jd['Log. dist [km]'],df_jd['Relative Dist. [m]']*0+1,linewidth=6)
+        plt.plot(df_jd['Log. dist [km]'],df_jd['Relative Dist. [m]']*0+1,linewidth=2)
         plt.title('Defects ERF')
-        plt.savefig('Defects_ERF.png', dpi=400)
+        plt.savefig('Defects_ERF.png', dpi=300)
         
     # plt.figure()
     # fig, ax = plt.subplots()
     # plt.plot(dfg2['Critical Length '],dfg2['depth[%]'],linewidth=0, marker='x', color='k', label='ERF = 1.0' )
     # g=sns.relplot(x="length [mm]", y='depth[%]', s = 100, hue ='ERF', 
-    #         sizes=(fig_size*6, fig_size*120), alpha=.7, palette=cmap , style =  't (mm)',
+    #         sizes=(fig_size*6, fig_size*120), alpha=.7, edgecolor=None,  palette=cmap , style =  't (mm)',
     #         height=fig_size, data=dfg2, aspect =2 , legend='brief')
     # # g.ax
     # # plt.plot(dfg2['Critical Length '],dfg2['depth[%]'],linewidth=0, marker='x', color='k', label='ERF = 1.0' )
     # plt.legend()
     
-    fig, ax = plt.subplots(dpi=400)
-    ax.plot(dfg2['Critical Length '],dfg2['depth[%]'],linewidth=0, marker='x', color='k', label='Critical (ERF = 1.0)')
-    g=sns.scatterplot(x="length [mm]", y='depth[%]', s = 100, hue ='ERF', ax=ax,
-        sizes=(fig_size*6, fig_size*120), alpha=.7, palette=cmap , style =  't (mm)',
-         data=dfg2 )
-    if i==1:
+    # fig, ax = plt.subplots(dpi=300)
+    sns.relplot(x="length [mm]", y='depth[%]', size =100, hue ='ERF',
+            sizes=(fig_size*6, fig_size*120), alpha=.7, edgecolor=None,  palette=cmap , style =  't (mm)',
+            height=fig_size, data=dfg2, aspect =2 )
+    plt.plot(dfg2['Critical Length '],dfg2['depth[%]'],linewidth=2, marker='x', color='k', label='Critical (ERF = 1.0)')
+    
+    # ax.plot(dfg2['Critical Length '],dfg2['depth[%]'],linewidth=0, marker='x', color='k', label='Critical (ERF = 1.0)')
+    # g=sns.scatterplot(x="length [mm]", y='depth[%]', s = 100, hue ='ERF', ax=ax,
+    #     sizes=(fig_size*6, fig_size*120), alpha=.7, edgecolor=None,  palette=cmap , style =  't (mm)',
+    #      data=dfg2 )
+    if i==ij[0]:
         plt.title('Current Assessment')
-    elif i==2:
+    elif i==ij[1]:
         plt.title('Future Assessment')
     plt.title('Defects Critical length')
-    plt.savefig('Defects_Critical_Size.png', dpi=400)
+    plt.savefig('Defects_Critical_Size.png', dpi=300)
     
     
-    fig, ax = plt.subplots(dpi=400)
+    fig, ax = plt.subplots(dpi=300)
     ax.plot(dfg2['length [mm]'],dfg2['Max Safety d [%]'],linewidth=0, marker='.', color='r')
     sns.scatterplot(x="length [mm]", y='depth[%]', s = 100, hue ='ERF', ax=ax,
-        sizes=(fig_size*6, fig_size*120), alpha=.7, palette=cmap , style =  't (mm)',
+        sizes=(fig_size*6, fig_size*120), alpha=.7, edgecolor=None,  palette=cmap , style =  't (mm)',
          data=dfg2 )
     
     plt.title('Defects Critical Depth')
-    plt.savefig('Defects_Critical_Depth.png', dpi=400)
+    plt.savefig('Defects_Critical_Depth.png', dpi=300)
