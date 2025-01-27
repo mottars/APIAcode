@@ -182,7 +182,7 @@ for i in range(len(Insps[-1].df_cluster)-1):
     new_row.W = cluster_i.W
     new_row['Cluster #'] = cluster_i['Cluster #']
     new_row['Cluster list'] = [cluster_i.defs]
-    new_row['Single_idx'] = cluster_i.defs[0]
+    new_row['Single_idx'] = 0
 
     new_row.index = [str(insert_in)+'c']
     
@@ -203,9 +203,9 @@ for i in range(len(Insps[-1].df_cluster)-1):
 #     )
 
 # # df.sort_index(level=1)
-Insps[-1].df_cluster = pd.concat(df_clstr)
+# Insps[-1].df_cluster = pd.concat(df_clstr)
 # Insps[-1].df_def = df
-Insps[-1].df_Def = pd.concat([Insps[-1].df_Def,Insps[-1].df_cluster])
+Insps[-1].df_Def = pd.concat([Insps[-1].df_Def,df_clstr])
 if plot_match:
     ##########################################################################
     # Matching procedure (between "ij" inspection)

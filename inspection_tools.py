@@ -1102,9 +1102,9 @@ def plot_cluster(df_cluster):
     dfg['depth[%]'] = df_cluster.d
     dfg['Clock Position'] = df_cluster.clock_pos
     dfg['length [mm]'] = df_cluster.L
-    dfg['Width [mm]'] = df_cluster.w
+    dfg['Width [mm]'] = df_cluster.W
     dfg['Cluster #'] = df_cluster['Cluster #']
-    dfg['Cluster defects'] = df_cluster['Cluster defects']
+    dfg['Cluster defects'] = df_cluster['Cluster defs']
     dfg['ERF'] = df_cluster['ERF']
 
         

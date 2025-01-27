@@ -310,41 +310,37 @@ class Inspection_data:
             print('ERF_crt : ',ERF_crt,'ERF_max: ', mx_erf,'ERF_mean: ', mn_erf)
             
             critic = (self.df_Def["ERF"] > ERF_crt) & (self.df_Def["d"] > d_min)
-            df=self.df_Def.copy().loc[critic]
+            # df=self.df_Def.copy().loc[critic]
+            df_crt = self.df_Def.loc[critic].copy()
             
-            print('N critic: ',len(df))
+            print('N critic: ',len(df_crt))
+            df_crt.reset_index(drop = True)
             
-            df_crt = df.copy()
             
             [gn, gl, get_gl]=itools.gridzone_set(df.gridzone.iloc[0], self.grid_letter)
             if get_gl:
                 gl = self.grid_letter
             
-            LL=utm.to_latlon(df.X.to_numpy(),df.Y.to_numpy(),int(gn),gl)
+            LL=utm.to_latlon(df_crt.X.to_numpy(),df_crt.Y.to_numpy(),int(gn),gl)
 
             ############################################################
             # ................................... geopandas
-            df['Lat'] = LL[0]
-            df['Long'] = LL[1]
-            df.reset_index(drop = True)
+            df_crt['Lat'] = LL[0]
+            df_crt['Long'] = LL[1]
             gdf = geopd.GeoDataFrame(
-                df, geometry=geopd.points_from_xy(df.Long, df.Lat), crs="EPSG:4326"
+                df_crt, geometry=geopd.points_from_xy(df_crt.Long, df_crt.Lat), crs="EPSG:4326"
             )
-            # gdf.ERF.fillna(0.0)
-            # gdf=gfd.assign('radius' = ['d'])
-            # gdf=gfd.assign('radius' = ['d'])
             
-            # ERFmin = gdf['ERF'].min()
             colormap= cm.LinearColormap(["blue", "green", "yellow", "red", "darkred"], vmin=ERF_crt, vmax=1.0,
                                         caption="ERF")
             
             gdf['ERF']=gdf['ERF'].fillna(0.3)
-            gdf['color'] = gdf['ERF'].fillna(0).apply(colormap)
+            gdf['color'] = gdf['ERF'].apply(colormap)
             gdf['radii'] = gdf['d']*3+70 #(gdf['L']**.5)
             # m = folium.Map(location=[(gdf.geometry.y).mean(), (gdf.geometry.x).mean()], zoom_start=4)
             
             name2=name + "Defects GeoData"
-            
+            gdf= gdf.drop(['Cluster list'], axis=1)
             folium.GeoJson(gdf, 
                            marker=folium.Circle(radius=10, fill_color="orange", fill_opacity=0.5, color="black", weight=0),
                            tooltip=folium.GeoJsonTooltip(fields=["feature", "ERF", "d", "L", "Lat","Long", 'Cluster #', 'surf_pos']),
