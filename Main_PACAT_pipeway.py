@@ -18,6 +18,7 @@ from python_scripts import main_pipe_normas as sempiric
 import copy
 
 import time
+import pandas as pd
 import Build_Inspction_Report as BIR
 
 # import Sistema_Cordut.Risk_Module as risk
@@ -36,6 +37,7 @@ relib_ana = 1
 # Geolocalização
 Plot_Map = 1
 plot_seaborn = 1
+plot_cluster = 1
 planar_plot = 1
 longi_plot = 1
 time_variable=0
@@ -59,7 +61,7 @@ datesi = [2006, 2014,  2017]
 spreadsheet_names = spreadsheet_namesi[2:3]
 dates = datesi[2:3]
 
-spreadsheet_names = ['Apendice_F_reduzido.xlsx']
+# spreadsheet_names = ['Apendice_F_reduzido.xlsx']
 spreadsheet_names = ['Apendice_F.xlsx']
 dates = [2024]
 
@@ -130,14 +132,85 @@ if debugon: print('UTM coordinate: ', df_Def.gridzone.iloc[0], ' S ',df_Def.X.il
 
 ##########################################################################
 # Cluster Identification for last inspection
-Insps[-1].Identify_Cluster( col_names , debugon = False)
+Insps[-1].Identify_Cluster( col_names , debugon = debugon)
 
+##########################################################################
+# def insert_cluster_rows()
+# save origial single defects index
 
+Insps[-1].df_Def['Single_idx'] = Insps[-1].df_Def.index
+df = Insps[-1].df_Def
+# cluster_details DF for RBP - FEA 
+# cluster_details = pd.DataFrame([[np.zeros(0),np.zeros(0),np.zeros(0),np.zeros(0),np.zeros(0)]],columns= ['L','W','d','Z','t'])
+cluster_details = pd.DataFrame()
+rows = []
+for i in range(len(Insps[-1].df_cluster)-1):
+    cluster_i = Insps[-1].df_cluster.iloc[i]
+    Zs = np.array([df.Z_pos.loc[cluster_i.defs].values])
+    ds = np.array([df.d.loc[cluster_i.defs].values])
+    Ls = np.array([df.L.loc[cluster_i.defs].values])
+    Ws = np.array([df.W.loc[cluster_i.defs].values])
+    ts = np.array([df.t.loc[cluster_i.defs].values])
+    
+    add_row = {'L': Ls,
+               'W': Ws,
+               'd': ds,
+               'Z': Zs,
+               't': ts}
+    rows.append(add_row)
+    # cluster_details.loc[i,'Z']= Zs
+    # cluster_details.loc[i].d= ds
+    # cluster_details.loc[i].L= Ls
+    # cluster_details.loc[i].W= Ws
+    # cluster_details.loc[i].t= ts
+cluster_details = pd.concat([cluster_details, pd.DataFrame(rows)], ignore_index=True)
+cluster_details.index = cluster_details.index+1
+df_clstr=[]
+for i in range(len(Insps[-1].df_cluster)-1):
+    
+    cluster_i = Insps[-1].df_cluster.iloc[i]
+    
+    # Index of cluster defect 0
+    insert_in = cluster_i.defs[0]  # Insert befor this row (index)
+    
+    # Row to insert
+    new_row = df.loc[insert_in:insert_in].copy()
+    
+    new_row.Z_pos = cluster_i.Z_pos
+    new_row.d = cluster_i.d
+    new_row.L = cluster_i.L
+    new_row.W = cluster_i.W
+    new_row['Cluster #'] = cluster_i['Cluster #']
+    new_row['Cluster list'] = [cluster_i.defs]
+    new_row['Single_idx'] = cluster_i.defs[0]
+
+    new_row.index = [str(insert_in)+'c']
+    
+    # print('single i', df.loc[insert_in:insert_in])
+    # print('clusteri', new_row)
+    
+    # Split, insert, and concatenate
+    
+    df_clstr.append(new_row)
+    
+#     df = pd.concat(
+#         [df.loc[:insert_in-1],  # Rows before and including insert_after
+#          new_row,     # New row as a DataFrame
+#          df.loc[insert_in:]],  # Rows after insert_after
+#         # keys=['single','cluster','single'],
+#         # names=['Defect type', 'index']
+#         # ignore_index=False             # dont Reset index
+#     )
+
+# # df.sort_index(level=1)
+Insps[-1].df_cluster = pd.concat(df_clstr)
+# Insps[-1].df_def = df
+Insps[-1].df_Def = pd.concat([Insps[-1].df_Def,Insps[-1].df_cluster])
 if plot_match:
     ##########################################################################
     # Matching procedure (between "ij" inspection)
 
-    match_Ins0, match_Ins1 = itools.matching(Insps, ij, debugon = False)
+    match_Ins0, match_Ins1 = itools.matching(Insps, ij, debugon = debugon)
     print('Defect Matching occurence: ', len(match_Ins1), '/',len(Insps[ij[1]].df_Def))
 
     ##########################################################################
@@ -168,21 +241,48 @@ for i in Insps:
 ###################################
 # Printing Critical Defects: ERF>0.99
 print_critical = 1
+ERF_lmt = 0.92
 if print_critical:
-    MSOP = Insps[-1].df_Def['MSOP']
-    print('Critical Defects: ERF>0.99')
-    id_crit = np.where(MAOP/MSOP>0.99)
+    ERF = Insps[-1].df_Def['ERF']
+    test = (ERF>ERF_lmt)
+    id_crit = np.where(test)
+    ncrtd = sum(test)
+    if ncrtd == 0:
+        print('No Critical Defects: ERF > ', ERF_lmt)
+    else:
+        print('Critical Defects: ERF > ',ERF_lmt)
+        print('Critical Defects found: ',ncrtd)
+    j=0
     for i in id_crit[0]:
+        j=j+1
+        print('Critical Defect: ', j)
+        print('Details of Defect : ',i)
         print(Insps[-1].df_Def.iloc[i])
+        if Insps[-1].df_Def['Cluster #'].iloc[i] >0:
+            # Cluster
+            print('Cluster details')
+            id_cluster = Insps[-1].df_Def['Cluster #'].iloc[i]
+            print(cluster_details.loc[id_cluster])
+            Ls = cluster_details.loc[id_cluster].L
+            ts = cluster_details.loc[id_cluster].t
+            ds = cluster_details.loc[id_cluster].d
+            Zs = cluster_details.loc[id_cluster].Z*1000
+            Zs = Zs - (np.min(Zs) - np.max(Ls))
+            x0 = Zs - Ls/2
+            x1 = Zs + Ls/2
+            y0 = ts*(1 - ds/100)
+            y1 = ts
+            plt.figure()
+            for k in range(len(Ls)):
+                plt.plot([x0[k],x1[k],x1[k],x0[k],x0[k]],[y0[k],y0[k],y1[k],y1[k],y0[k]])
+            plt.xlabel('long. dist. (mm)')
+            plt.ylabel('Wall tickness (mm)')
+            plt.title('Cluster Defect ID:'+ str(id_cluster))
+                
+            
+            
         
 #############################################
-##############
-#Save DF
-for i in Insps:
-    i.df_Def.to_csv('./DataFrames/Defect_Assessment_' + str(i.date) + '.csv')
-    i.df_joints.to_csv('./DataFrames/Joints_Inspection_' + str(i.date) + '.csv')   
-
-##############
 ##############
 # MAPs
 if Plot_Map:
@@ -190,7 +290,8 @@ if Plot_Map:
 
 ############################################################
 # Reliability Analysis
-relib_ana=1
+relib_ana=0
+Run_compare_ERF_ProbF=0
 if relib_ana==1:
     
     n_Insps = len(Insps)
@@ -198,21 +299,44 @@ if relib_ana==1:
         inspi.reliability_analysis()
         print('Form convergence problems?:')
         print(np.sum(np.isnan(inspi.df_Def['beta'])))
-
-    itools.compare_ERF_ProbF(Insps)
+    
+    if Run_compare_ERF_ProbF==1:
+        itools.compare_ERF_ProbF(Insps)
 ############################################################
+# User Frendly Data Frame
+
+for ii in ij:
+    dfg = itools.grafical_DF(Insps[ii])
+    Insps[ii].dfg=dfg
+    
+##############
+#Save DF
+for i in Insps:
+    i.dfg.to_csv('./DataFrames/Defect_Assessment_DF_' + str(i.date) + '.csv')
+    i.df_joints.to_csv('./DataFrames/Joints_Inspection_' + str(i.date) + '.csv')   
+
+##############
 # PLOTS ###
 
+    
+
+if plot_seaborn:
+    # plot_seaborns(Inspection,  col_names,ij =[0,1], XY0=[], min_joint_dist = 0.5):
+    itools.plot_seaborns(Insps, col_names,ij,plot_match, planar_plot = planar_plot, longi_plot = longi_plot )
+    # print ("end")
+
+
+if plot_cluster:
+    # plot_seaborns(Inspection,  col_names,ij =[0,1], XY0=[], min_joint_dist = 0.5):
+    itools.plot_cluster(Insps[-1].df_cluster)
+    
+    
 ###############################################
 ### REFORMATING -> PAREI AQUI
 ###############################################
 
 # PI.X
 
-if plot_seaborn:
-    # plot_seaborns(Inspection,  col_names,ij =[0,1], XY0=[], min_joint_dist = 0.5):
-    itools.plot_seaborns(Insps, col_names,ij,plot_match, planar_plot = planar_plot, longi_plot = longi_plot )
-    # print ("end")
 
 if time_variable:
     ############################################################

@@ -625,7 +625,7 @@ def CGR_Comput(Inspection, ij, match_Ins0, match_Ins1, min_CGR=0.1, max_CGR = 1.
     return CGR, CGRp
     
     
-def find_clusters(df_Def, D):
+def find_clusters(df_Def, D, debugon):
     # depth_col, def_len_col , def_w_col,t_col, X_col  , Y_col  ,H_col , gridzone_col , tube_num_col , tube_len_col , weld_dist_col , Z_pos_col , circ_pos_col , surf_pos_col , ERF_col , feature_col = col_names 
     #Interacting Defec (find clusters)
     # Using meters and rad/2
@@ -634,48 +634,60 @@ def find_clusters(df_Def, D):
     n_def = len(df_Def)
     colony_def = np.zeros(n_def)
     cluster = []
+    cluster_size = []
     started_colony = False
     for i in range(n_def-1):
         
         ## NEED TO KNNOW WHERE THE POSITION IS DEFINE IN THE DEFECT
         # For the begining (z0, theta0)
-        
-        end_def_i = df_Def.Z_pos.iloc[i] + df_Def.L.iloc[i]/1000
-        dz = df_Def.Z_pos.iloc[i+1] - end_def_i 
+        Z0=df_Def.Z_pos.iloc[i]
+        Z1=df_Def.Z_pos.iloc[i+1]
+        L0=df_Def.L.iloc[i]/1000
+        L1=df_Def.L.iloc[i+1]/1000
+        end_def_i = Z0 + L0/2 
+        dz = Z1 - L1/2 - end_def_i 
         t =  df_Def.t.iloc[i]/1000
-        if dz < 2*(D*t)**.5:
-            
+        if dz < 2*((D*t)**.5):
+            # Interaction
+            Zeq = Z0 + dz/2
+            Leq = (dz+L0+L1)*1000
             # For the begining (z0, theta0)
             # pi.D = 360º = 1, pi.D/1 = s/rad, s = pi.D.rad
-            perimeter = np.pi*D
+            # D is in m
+            circ = np.pi*D
             
-            w_rad = df_Def.W.iloc[i] / perimeter/1000
-            def_i = df_Def.clock_pos.iloc[i]
-            end_def_i = def_i + w_rad
+            w0 = df_Def.W.iloc[i]/1000 / circ
+            w1 = df_Def.W.iloc[i+1]/1000 / circ
             
-            w_rad = df_Def.W.iloc[i+1] / perimeter/1000
-            def_j = df_Def.clock_pos.iloc[i+1]
-            end_def_j = def_i + w_rad
+            # 0 < 'clock pos' <1
+            C0 = df_Def.clock_pos.iloc[i]
+            C1 = df_Def.clock_pos.iloc[i+1]
+            
+            # end_def0 = C0 + w0
+            # end_def1 = C1 + w1
             
             #############################
             # Essa intersecao entre defeitos precisa de desenho p entender
             # idea from: https://stackoverflow.com/questions/6821156/how-to-find-range-overlap-in-python
             # w/ the circular problem added
-            rads0 = [def_i, def_j]
-            radsf = [end_def_i, end_def_j]
+            rads0 = [C0 - w0/2, C1 - w1/2]
+            radsf = [C0 + w0/2, C1 + w1/2]
             
             # negative means overlap
             drad = max(rads0) - min(radsf)
             
-            # circular case
+            # circular case (see iteraction_rule figure file)
             drad1 =  1 - (max(radsf) - min(rads0))
             
             drad = min(drad, drad1)
             
             d_circ = drad*np.pi*D
-            if debugon: print(i, 'd_circ = ', d_circ, 'drad1= ', drad1, 'dz = ', dz)
             
-            if drad < (t/D)**.5:
+            if d_circ < (t/D)**.5:
+                Weq = (drad + w0 + w1)*np.pi*D*1000
+                Ceq = (C0 + w0/2)
+                # if debugon: print(i, 'dz = ', dz, 'limit= ', 2*((D*t)**.5))
+                # if debugon: print(i, 'd_circ = ', d_circ, 'drad= ', drad, 'limit = ', (t/D)**.5)
             # Interacting Defec
                 colony_def[i] = i+1
                 if started_colony:
@@ -684,13 +696,15 @@ def find_clusters(df_Def, D):
                     # Start New Cluster
                     started_colony = True
                     cluster.append([i,i+1])
+                    cluster_size.append([Leq,Weq, Zeq, Ceq])
+                    
             else:
                 started_colony = False
                 
         elif started_colony:
             started_colony = False
             
-    return cluster , colony_def
+    return cluster , colony_def, cluster_size
 #################################################################
 
 
@@ -826,19 +840,68 @@ def compare_ERF_ProbF(Inspection):
         plt.title(tt)
         plt.savefig(tt+'.png', dpi=300)
 
+
+def grafical_DF(Inspection, XY0=[], min_joint_dist = 0.5):
+
+    # if len(XY0)==0: XY0 = [Inspection.df_joints.X.iloc[0],
+    #                        Inspection.df_joints.Y.iloc[0],
+    #                        Inspection.df_joints.H.iloc[0]]
+    
+    
+    # X0 = XY0[0]
+    # Y0 = XY0[1]
+    # Z0 = XY0[2]
+
+    X = Inspection.df_Def.X 
+    Y = Inspection.df_Def.Y 
+    
+    dfg = pd.DataFrame([],columns=['X', 'Y', 'CGR', 'Match', 'Z'])
+    dfg['Easting'] = X
+    dfg['Northing'] = Y
+    dfg['Log. dist [km]'] = Inspection.df_Def.Z_pos/1000
+    
+    dfg['depth[%]'] = Inspection.df_Def.d
+    dfg['Clock Position'] = Inspection.df_Def.clock_pos
+    dfg['length [mm]'] = Inspection.df_Def.L
+    dfg['MSOP [bar]'] = Inspection.df_Def['MSOP']*10
+    dfg['ERF'] = Inspection.df_Def['ERF']
+    dfg['t (mm)'] = Inspection.df_Def.t
+    # dfg['Surface Position'] = Inspection.df_Def.d
+    
+    dfg['Max Safety d [%]'] = Inspection.df_Def['Max Safety d [%]']*100
+    dfg['Critical Length '] = Inspection.df_Def['L max']
+    
+    
+    relDist0 =  abs(Inspection.df_Def['ref_dist'].values)
+    relDist1 =  Inspection.df_Def.tube_len.values - relDist0
+    dfg['Relative Dist. [m]'] = np.minimum(relDist0, relDist1)
+    
+    dfg['Defect Tube Position'] = 'Tube'
+    dfg['Defect on Joints'] = np.nan
+    idx = dfg.index[dfg['Relative Dist. [m]']<min_joint_dist]
+    dfg.loc[idx,'Defect Tube Position'] = 'Joint'
+    dfg.loc[idx,'Defect on Joints'] = 1
+    
+    dfg['Cluster defects'] = Inspection.df_Def['Cluster defs']
+    dfg['Cluster #'] = Inspection.df_Def['Cluster #']
+    
+    #############################################
+    
+    return dfg
+
 def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joint_dist = 0.5, planar_plot = 1, longi_plot = 0):
     
 
     i=ij[-1]
-    depth_col, def_len_col , def_w_col,t_col , X_col  ,Y_col , H_col , gridzone_col , tube_num_col , tube_len_col , weld_dist_col , Z_pos_col , circ_pos_col , surf_pos_col , ERF_col , feature_col = col_names[i]
+    # depth_col, def_len_col , def_w_col,t_col , X_col  ,Y_col , H_col , gridzone_col , tube_num_col , tube_len_col , weld_dist_col , Z_pos_col , circ_pos_col , surf_pos_col , ERF_col , feature_col = col_names[i]
     
-    if len(XY0)==0: XY0 = [Inspection[i].df_joints.X.iloc[0],
-                           Inspection[i].df_joints.Y.iloc[0],
-                           Inspection[i].df_joints.H.iloc[0]]
+    # if len(XY0)==0: XY0 = [Inspection[i].df_joints.X.iloc[0],
+    #                        Inspection[i].df_joints.Y.iloc[0],
+    #                        Inspection[i].df_joints.H.iloc[0]]
     
     
-    X0 = XY0[0]
-    Y0 = XY0[1]
+    # X0 = XY0[0]
+    # Y0 = XY0[1]
     # Z0 = XY0[2]
     
     if plot_match:
@@ -853,28 +916,12 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
     plt.xlabel('Defects depths [%]')
     plt.ylabel('Frequency')
     
-    X = Inspection[i].df_Def.X - X0
-    Y = Inspection[i].df_Def.Y - Y0
     
     if plot_match:
         CGR = Inspection[i].df_Def['CGR']
         CGRp= Inspection[i].df_Def['CGRp']
-    
-    dfg = pd.DataFrame([],columns=['X', 'Y', 'CGR', 'Match', 'Z'])
-    dfg['X'] = X
-    dfg['Y'] = Y
-    dfg['Log. dist [km]'] = Inspection[i].df_Def.Z_pos/1000
-    
-    dfg['depth[%]'] = Inspection[i].df_Def.d
-    dfg['Clock Position'] = Inspection[i].df_Def.clock_pos
-    dfg['length [mm]'] = Inspection[i].df_Def.L
-    dfg['MSOP [bar]'] = Inspection[i].df_Def['MSOP']*10
-    dfg['ERF'] = Inspection[i].df_Def['ERF']
-    dfg['t (mm)'] = Inspection[i].df_Def.t
-    # dfg['Surface Position'] = Inspection[i].df_Def.d
-    
-    dfg['Max Safety d [%]'] = Inspection[i].df_Def['Max Safety d [%]']*100
-    dfg['Critical Length '] = Inspection[i].df_Def['L max']
+        
+    dfg=Inspection[i].dfg
     
     if plot_match:
         dfg['CGR[mm]'] = np.round(CGR,2)
@@ -884,25 +931,10 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
         idx = dfg.index[match_Ins1]
         dfg.loc[idx,'Match'] = 'matched'
     
-    relDist0 =  abs(Inspection[i].df_Def['ref_dist'].values)
-    relDist1 =  Inspection[i].df_Def.tube_len.values - relDist0
-    dfg['Relative Dist. [m]'] = np.minimum(relDist0, relDist1)
-    
-    dfg['Defect Tube Position'] = 'Tube'
-    dfg['Defect on Joints'] = np.nan
-    idx = dfg.index[dfg['Relative Dist. [m]']<min_joint_dist]
-    dfg.loc[idx,'Defect Tube Position'] = 'Joint'
-    dfg.loc[idx,'Defect on Joints'] = 1
-    
-    Inspection[i].df_Def['Cluster defs']= np.nan
-    dfg['Cluster defs'] = Inspection[i].df_Def['Cluster defs']
-    
-    Inspection[i].df_Def['Cluster #']= np.nan
-    dfg['Cluster #'] = Inspection[i].df_Def['Cluster #']
     #############################################
     
-    Xpl = Inspection[0].df_joints.X - X0
-    Ypl = Inspection[0].df_joints.Y - Y0
+    Xpl = Inspection[0].df_joints.X 
+    Ypl = Inspection[0].df_joints.Y 
     
     sns.set_style(style="white")
     # palt=sns.color_palette("flare")
@@ -919,14 +951,14 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
 # Plot 
 
     if planar_plot:
-        sns.relplot(x="X", y="Y", size ="length [mm]", hue ="depth[%]",
+        sns.relplot(x="Easting", y="Northing", size ="length [mm]", hue ="depth[%]",
                 sizes=(fig_size*6, fig_size*120), alpha=.5, palette=cmap, 
                 height=fig_size*1.5, data=dfg )
         plt.plot(Xpl, Ypl)
         
         
         if plot_match:
-            sns.relplot(x="X", y="Y", hue ="CGR[%]", size ="depth[%]",
+            sns.relplot(x="Easting", y="Northing", hue ="CGR[%]", size ="depth[%]",
                     sizes=(fig_size*6, fig_size*120), alpha=.5, style = "Match",palette=cmap, 
                     height=fig_size*1.5, data=dfg )
             plt.plot(Xpl, Ypl)
@@ -936,8 +968,8 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
         
         #sns.scatterplot
         
-        # sns.relplot(x="X", y="Y", hue ='Cluster #', size ="length [mm]",
-        #         sizes=(fig_size*6, fig_size*120), alpha=.5, style = 'Cluster defs' ,
+        # sns.relplot(x="Easting", y="Northing", hue ='Cluster #', size ="length [mm]",
+        #         sizes=(fig_size*6, fig_size*120), alpha=.5, style = 'Cluster defects' ,
         #         height=fig_size*1.5, data=dfg)
         # plt.plot(Xpl, Ypl)
     
@@ -967,11 +999,6 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
                     sizes=(fig_size*6, fig_size*120), alpha=.7, edgecolor=None,  palette=cmap ,style = 'Match',
                     height=fig_size, data=dfg, aspect =2 )
         
-        sns.relplot(x='Log. dist [km]', y='depth[%]', hue ='Cluster #', size ="length [mm]",
-                sizes=(fig_size*6, fig_size*120), alpha=.7, edgecolor=None,  palette=cmap , style = 'Cluster defs',
-                height=fig_size, data=dfg, aspect =2 )
-        plt.title('Defects Clusters')
-        plt.savefig('Defects_Clusters.png', dpi=300)
         
         sns.relplot(x='Relative Dist. [m]',y='depth[%]' , hue ='Log. dist [km]', size ="length [mm]",
                 sizes=(fig_size*6, fig_size*120), alpha=.7, edgecolor=None,  palette=cmap , style = 'Defect Tube Position',
@@ -1062,3 +1089,27 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
     
     plt.title('Defects Critical Depth')
     plt.savefig('Defects_Critical_Depth.png', dpi=300)
+    
+def plot_cluster(df_cluster):
+    
+    cmap = mcm.jet
+    fig_size = 4 #[3 to 8]
+    
+    # df_cluster = pd.DataFrame(columns=['d', 'L', 'w', 'Z_pos', 'clock_pos', 'Cluster #', 'Cluster defects'])
+    dfg = pd.DataFrame([],columns=['depth[%]', 'length [mm]', 'Log. dist [km]', 'Clock Position'])
+    dfg['Log. dist [km]'] = df_cluster.Z_pos/1000
+    
+    dfg['depth[%]'] = df_cluster.d
+    dfg['Clock Position'] = df_cluster.clock_pos
+    dfg['length [mm]'] = df_cluster.L
+    dfg['Width [mm]'] = df_cluster.w
+    dfg['Cluster #'] = df_cluster['Cluster #']
+    dfg['Cluster defects'] = df_cluster['Cluster defects']
+    dfg['ERF'] = df_cluster['ERF']
+
+        
+    sns.relplot(x='Log. dist [km]', y='ERF', hue ='depth[%]', size ="length [mm]",
+            sizes=(fig_size*6, fig_size*120), alpha=.7, edgecolor=None,  palette=cmap , style = 'Cluster defects',
+            height=fig_size, data=dfg, aspect =2 )
+    plt.title('Defects Clusters')
+    plt.savefig('Defects_Clusters.png', dpi=300)

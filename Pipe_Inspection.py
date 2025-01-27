@@ -65,6 +65,7 @@ class Inspection_data:
             df = pd.read_excel(self.surce_dir+os.sep+spreadsheet_name,   )
         
         print(spreadsheet_name)
+        
         if debugon: print("Raw Data Frame size: ",sys.getsizeof(df))
         df=itools.skp_header(df,debugon)
         print("New Raw Data Frame size: ",sys.getsizeof(df))
@@ -98,23 +99,36 @@ class Inspection_data:
         #cluster
         # mm to m
         D = self.OD/1000
-        
-        cluster, colony_def = itools.find_clusters(self.df_Def, D)
-        
+        print(D)
+        cluster, colony_def, cluster_size = itools.find_clusters(self.df_Def, D, debugon)
         self.clusters = cluster
         # Insps[-1].df_Def['Clusters'] = colony_def
         
         
         self.df_Def['Cluster defs']= np.nan
-        self.df_Def['Cluster #']= np.nan
-        
-        k=0
+        self.df_Def['Cluster #']= 0
+        df_cluster = pd.DataFrame(columns=['d', 'L', 'w', 't', 'Z_pos', 'clock_pos', 'Cluster #', 'Cluster defects'])
+        k=-1
+        cluster_list = []
         for ic in cluster:
             k=k+1
             idx = self.df_Def.iloc[ic].index
-            self.df_Def.loc[idx, 'Cluster #']= k
+            self.df_Def.loc[idx, 'Cluster #']= k+1
             self.df_Def.loc[idx, 'Cluster defs']= len(ic)
-        
+            clstr_d = np.max(self.df_Def.iloc[ic].d)
+            clstr_t = np.mean(self.df_Def.iloc[ic].t)
+            try:
+                new_rows = {'defs': idx, 'd': clstr_d, 'L': cluster_size[k][0], 'W': cluster_size[k][1], 't': clstr_t, 'Z_pos': cluster_size[k][2], 'clock_pos': cluster_size[k][3], 'Cluster #': k+1, 'Cluster defects': len(ic)}
+            except:
+                print(k, len(cluster), len(cluster_size), clstr_d,  cluster_size[k-1])
+            
+            cluster_list.append(new_rows)
+            
+        # df_cluster = self.df_Def.loc[self.df_Def['Cluster #'] != 0]
+        # Append all rows at once
+        print(k, len(cluster), len(cluster_size), clstr_d,  cluster_size[k-1])
+        df_cluster = pd.concat([df_cluster, pd.DataFrame(cluster_list)], ignore_index=True)
+        self.df_cluster = df_cluster 
         #############################################
         
     def Future_def(self, Dates, dt, debugon = False):
@@ -153,6 +167,25 @@ class Inspection_data:
         
         self.df_Def['L max'] = Llim*1000
         self.df_Def['Max Safety d [%]'] = dp_max
+        
+        # if hasattr(self, 'df_cluster'):
+        #     df=self.df_cluster
+        #     L  = df.L.values/1000
+        #     t  = df.t.values/1000
+        #     dp = df.d.values/100 # dp(%)
+            
+        #     MSOP = itools.comput_MSOP(D,t,dp,L,sige,sigu, unit = 'MPa', method=analysis_type)
+            
+        #     self.df_cluster['MSOP'] = MSOP
+        #     self.df_cluster['ERF'] = MAOP/MSOP
+            
+        #     print('VER -> itools.def_critical_limits(dp,t,D,sige, MAOP)')
+        #     dp_max, Llim = itools.def_critical_limits(dp,t,D,sige, MAOP)
+            
+        #     self.df_cluster['L max'] = Llim*1000
+        #     self.df_cluster['Max Safety d [%]'] = dp_max*100
+        
+        
         
         
     def reliability_analysis(self, semi_empiric = sempiric.modifiedb31g):
@@ -223,7 +256,7 @@ class Inspection_data:
         
     ##############
     # MAPs
-    def plot_map(self, name='', plot_joint=True, plot_defect=True, ERF_min=0.8, ERF_max=1.0, d_min=0.0, save_m=True):
+    def plot_map(self, name='', plot_joint=True, plot_defect=True, ERF_min=0.95, ERF_max=1.0, d_min=0.0, save_m=True):
 
         if len(name)==0:
             name = self.file_name+'_Map'
@@ -274,12 +307,12 @@ class Inspection_data:
             mx_erf = np.max (self.df_Def["ERF"] )
             ERF_crt = np.min ( [np.round((mx_erf+mn_erf)/2,2), ERF_min])
             
-            print(ERF_crt, mx_erf, mn_erf)
+            print('ERF_crt : ',ERF_crt,'ERF_max: ', mx_erf,'ERF_mean: ', mn_erf)
             
             critic = (self.df_Def["ERF"] > ERF_crt) & (self.df_Def["d"] > d_min)
             df=self.df_Def.copy().loc[critic]
             
-            print(len(df))
+            print('N critic: ',len(df))
             
             df_crt = df.copy()
             
@@ -293,6 +326,7 @@ class Inspection_data:
             # ................................... geopandas
             df['Lat'] = LL[0]
             df['Long'] = LL[1]
+            df.reset_index(drop = True)
             gdf = geopd.GeoDataFrame(
                 df, geometry=geopd.points_from_xy(df.Long, df.Lat), crs="EPSG:4326"
             )
@@ -306,13 +340,14 @@ class Inspection_data:
             
             gdf['ERF']=gdf['ERF'].fillna(0.3)
             gdf['color'] = gdf['ERF'].fillna(0).apply(colormap)
-            gdf['radii'] = gdf['d']/2+50 #(gdf['L']**.5)
+            gdf['radii'] = gdf['d']*3+70 #(gdf['L']**.5)
             # m = folium.Map(location=[(gdf.geometry.y).mean(), (gdf.geometry.x).mean()], zoom_start=4)
             
             name2=name + "Defects GeoData"
+            
             folium.GeoJson(gdf, 
-                           marker=folium.Circle(radius=4, fill_color="orange", fill_opacity=0.2, color="black", weight=0),
-                           tooltip=folium.GeoJsonTooltip(fields=["feature", "ERF", "d", "L", "Lat","Long"]),
+                           marker=folium.Circle(radius=10, fill_color="orange", fill_opacity=0.5, color="black", weight=0),
+                           tooltip=folium.GeoJsonTooltip(fields=["feature", "ERF", "d", "L", "Lat","Long", 'Cluster #', 'surf_pos']),
                            style_function=lambda x: {
                                     "fillColor": x['properties']['color'],
                                     "radius": x['properties']['radii'],
