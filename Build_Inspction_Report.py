@@ -128,15 +128,64 @@ def get_section_level(text):
         return level, cleaned_text
     return 0, text.strip()
     
+def criar_tabela(doc,A):
+    
+    # Adiciona uma tabela com 3 linhas e 3 colunas
+    nc = len(A.columns)
+    nr = len(A)
+    table = doc.add_table(rows=nr, cols=nc)
+    table.style = 'Table Grid'
+    
+    
+    header_cells = table.rows[0].cells
+    for i, column_name in enumerate(A.columns):
+        header_cells[i].text = column_name
+    # header_cells.text = A.columns
+    # header_cells[1].text = 'Tube Number'
+    # header_cells[2].text = 'Z Position'
+    # header_cells[3].text = 'Depth (d)'
+    # header_cells[4].text = 'Length (L)'
+    # header_cells[5].text = 'ERF'
+    # header_cells[6].text = 'Tipo POF'
+    
+    # Preenche a tabela com dados
+    doc.add_paragraph()
+    for i in range(nr):
+        for j in range(nc):
+            cell = table.cell(i, j)
+            cell.text = f'{A.iloc[i,j]}'
+            
+def pontos_criticos(doc,critical_defects):
+    table = doc.add_table(rows=1, cols=7)
+    table.style = 'Table Grid'
+    header_cells = table.rows[0].cells
+    header_cells[0].text = 'Defect ID'
+    header_cells[1].text = 'Tube Number'
+    header_cells[2].text = 'Z Position'
+    header_cells[3].text = 'Depth (d)'
+    header_cells[4].text = 'Length (L)'
+    header_cells[5].text = 'ERF'
+    header_cells[6].text = 'Tipo POF'
 
+    # Preenche a tabela com os dados
+    for defect in critical_defects:
+        row_cells = table.add_row().cells
+        row_cells[0].text = str(defect["Defect ID"])
+        row_cells[1].text = str(defect["Tube Number"])
+        row_cells[2].text = str(defect["Z Position"])
+        row_cells[3].text = str(defect["Depth (d)"])
+        row_cells[4].text = str(defect["Length (L)"])
+        row_cells[5].text = str(defect["ERF"])
+        row_cells[6].text = defect["Tipo POF"]
+    
 def Criar_Relatorio(file_name = 'Relatorio_de_Inspecao.docx', insp=[]):
     ##############################################################################
     ######## INICIO ########
     ##############################################################################
     
     #organizadores gerais do relatório
-    num_tabela = 1
-    num_figura = 1
+    # num_tabela = 1
+    # num_figura = 1
     
     #criação do documento
     doc = docx.Document()
@@ -145,9 +194,15 @@ def Criar_Relatorio(file_name = 'Relatorio_de_Inspecao.docx', insp=[]):
     
     #inicialização dos dados de identificação do relatório
     #identificacaoDoRelatorio(doc,  relatorio = None, projeto = None, objetivo = None)
+    ###############################################
+    # INICIO
     doc = identificacaoDoRelatorio(doc)
+    ###############################################
     
+    ###############################################
+    # 1 - Informações Gerais
     doc = configuraTexto(doc, 'Informações Gerais', True, 1)
+    
     njoint = len(insp.df_joints)
     
     texto = [
@@ -163,7 +218,7 @@ def Criar_Relatorio(file_name = 'Relatorio_de_Inspecao.docx', insp=[]):
     
     for txt in texto:
         doc = configuraTexto(doc, txt)
-    
+    ###############################################
     
     texto = ['Resumo da metodologia usada: ',
     'Explicação breve sobre a análise realizada no pipe tally.',
@@ -176,26 +231,8 @@ def Criar_Relatorio(file_name = 'Relatorio_de_Inspecao.docx', insp=[]):
     
     doc = configuraTexto(doc, 'Descrição do duto', True, 2)
     doc = configuraTexto(doc, '[incluir texto sobre o duto]')
-        
-    fign=0
-    fig_list = [
-    'anomalies_histogram.png',
-    'Depth_histogram.png',
-    'Defects_Sizes.png',
-    'Geo_Loc.png',
-    'Joint_Position.png',
-    'Defects_Clock_Position.png',
-    'Defects_Clusters.png',
-    'Defects_ERF.png',
-    'Defects_ASSESSMENT.png',
-    'Defects_Critical_Depth.png',
-    'Defects_Critical_Size.png',
-    'Defects_MSOP.png',
-    'Current Inspection.png',
-    'Features_position.png',
-    # 'Future Assessment (5 years).png',
-    #'Metal_Loss_position.png'
-    ]
+    
+    
     
     
     legenda = 'asdsdgn.yhou'
@@ -234,6 +271,8 @@ def Criar_Relatorio(file_name = 'Relatorio_de_Inspecao.docx', insp=[]):
         "Este gráfico identifica clusters de defeitos interagentes ao longo do duto. Essas interações podem aumentar a criticidade dos defeitos e requerem atenção especial durante a avaliação de integridade.",
         "Figura 7: Identificação dos defeitos interagentes (Figura: Defects_Clusters.png).",
         "4 Avaliação Atual de Integridade",
+        "A Tabela do distribuição dos fatores de reparo (ERFs) apresenta uma avaliação geral das anomalias encontradas",
+        "Tabela 1 - distribuição dos ERFs",
         "4.1 Análise dos Fatores de Reparo (ERF)",
         "Este gráfico mostra os fatores de reparo calculados para os defeitos detectados. O ERF é uma métrica que indica a severidade de cada defeito em relação aos limites operacionais do duto.",
         "Figura 8: Fatores de reparo (ERF) dos defeitos ao longo do duto (Figura: Defects_ERF.png).",
@@ -247,13 +286,15 @@ def Criar_Relatorio(file_name = 'Relatorio_de_Inspecao.docx', insp=[]):
         "4.3 Pressão Máxima de Operação Segura",
         "Este gráfico apresenta a pressão máxima de operação segura (MSOP) calculada para cada defeito. Ele ajuda a determinar se o duto pode continuar operando em condições seguras.",
         "Figura 12: Pressão máxima segura para cada defeito (Figura: Defects_MSOP.png).",
-        "4.4 Probabilidade de Falha",
-        "Esta figura mostra a probabilidade de falha (PF) associada a cada defeito, juntamente com os fatores de reparo (ERFs). Ela oferece uma visão abrangente da criticidade de cada anomalia.",
-        "Figura 13: Probabilidade de falha e ERF combinados (Figura: Current Inspection.png).",
+        # "4.4 Probabilidade de Falha",
+        # "Esta figura mostra a probabilidade de falha (PF) associada a cada defeito, juntamente com os fatores de reparo (ERFs). Ela oferece uma visão abrangente da criticidade de cada anomalia.",
+        # "Figura 13: Probabilidade de falha e ERF combinados (Figura: Current Inspection.png).",
         #"5 Avaliação Futura",
         #"5.1 Projeção de Crescimento",
         #"Este gráfico apresenta a projeção da integridade do duto com base nas taxas de crescimento de corrosão. Ele permite prever a evolução dos defeitos e planejar intervenções preventivas.",
         #"Figura 14: Avaliação futura considerando um horizonte de 5 anos (Figura: Future Assessment (5 years).png).",
+        '4.1 Pontos criticos',
+        
         "6 Conclusão",
         "Resumo das condições do duto.",
         "Identificação de pontos críticos e recomendações para reparo ou monitoramento.",
@@ -261,6 +302,29 @@ def Criar_Relatorio(file_name = 'Relatorio_de_Inspecao.docx', insp=[]):
         "Metodologias aplicadas em detalhe.",
         "Tabelas suplementares, se necessário."
     ]
+    
+    fign=0
+    fig_list = [
+    'anomalies_histogram.png',
+    'Depth_histogram.png',
+    'Defects_Sizes.png',
+    'Geo_Loc.png',
+    'Joint_Position.png',
+    'Defects_Clock_Position.png',
+    'Defects_Clusters.png',
+    'Defects_ERF.png',
+    'Defects_ASSESSMENT.png',
+    'Defects_Critical_Depth.png',
+    'Defects_Critical_Size.png',
+    'Defects_MSOP.png',
+    'Current Inspection.png',
+    'Features_position.png',
+    # 'Future Assessment (5 years).png',
+    #'Metal_Loss_position.png'
+    ]
+    
+    tabn=0
+    
     
     for txt in textos:
         iten, tt=get_section_level(txt)
@@ -273,6 +337,15 @@ def Criar_Relatorio(file_name = 'Relatorio_de_Inspecao.docx', insp=[]):
                 run_imagem = paragrafo.add_run()
                 run_imagem.add_picture(fig_list[fign], width=Cm(16))
                 fign+=1
+            elif txt.startswith('Tab'):
+                if tabn==0:
+                    criar_tabela(doc,insp.ERF_dist)
+                # elif tabn==1:
+                #     criar_tabela(doc,insp.tab2)
+                
+                
+                    
+                tabn+=1
             doc = configuraTexto(doc, tt)
         
     

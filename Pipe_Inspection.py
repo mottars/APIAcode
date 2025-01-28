@@ -10,6 +10,7 @@ import numpy as np
 import os
 import sys
 import inspection_tools as itools
+
 # get_spreadsheet_labels, pre_proc_df, find_clusters, comput_MSOP, def_critical_limits
 
 from python_scripts import Risk_Module as risk
@@ -23,7 +24,7 @@ import branca.colormap as cm
 
 
 class Inspection_data:
-    def __init__(self, file_name, date, OD, surce_dir='',future=False, grid_letter='J', sige = 485, sigu = 565, MAOP = 10, Insp_type = 'MFL',Confid_level=0.85, Accuracy=0.1, acc_rel =-1):
+    def __init__(self, file_name, date, OD, surce_dir='',future=False, grid_letter='J', sige = 485, sigu = 565, MAOP = 10, Insp_type = 'MFL',Confid_level=0.85, Accuracy=0.1, acc_rel =-1, F = 0.72):
         self.file_name = file_name
         self.date = date
         self.OD = OD
@@ -33,6 +34,7 @@ class Inspection_data:
         self.MAOP = MAOP
         self.sige = sige
         self.sigu = sigu
+        self.F = F
         
         # Inspection Tool DATA:
         self.Insp_type=Insp_type ## MFL, UT
@@ -48,8 +50,7 @@ class Inspection_data:
         # Gambiarra Não vem no Pipetally -> using UTM !!!!!!!!!!!
         self.grid_letter=grid_letter
         ######################################
-        
-
+    
     def Tally_read(self, i=0,  XY0=[], debugon = False):
         # Pipe Tally read to Data Frame
         
@@ -82,6 +83,7 @@ class Inspection_data:
         self.i_def = i_def
         self.df_joints = df_joints
         self.i_joints = i_joints
+        self.t0 = np.min(df_joints.t.values)
         if debugon: print("DFjoint size: ",sys.getsizeof(df_joints))
         if debugon: print("DFml size: ",sys.getsizeof(df_Def))
         
@@ -89,6 +91,14 @@ class Inspection_data:
         
         return XY0, col_names
     
+    def barlow_eq(self):
+        
+        i=self
+        
+        self.barlow_pressure = i.sige*((2*i.t0)/i.OD)*i.F
+        self.ERF_base = i.MAOP/self.barlow_pressure 
+        
+
     def add_CGR(self, CGR, CGRp, min_CGR = 0.1, max_CGR = 1.2 , debugon = False):
         self.df_Def['CGR'] = CGR
         self.df_Def['CGRp'] = CGRp
@@ -99,7 +109,7 @@ class Inspection_data:
         #cluster
         # mm to m
         D = self.OD/1000
-        print(D)
+
         cluster, colony_def, cluster_size = itools.find_clusters(self.df_Def, D, debugon)
         self.clusters = cluster
         # Insps[-1].df_Def['Clusters'] = colony_def
@@ -126,7 +136,7 @@ class Inspection_data:
             
         # df_cluster = self.df_Def.loc[self.df_Def['Cluster #'] != 0]
         # Append all rows at once
-        print(k, len(cluster), len(cluster_size), clstr_d,  cluster_size[k-1])
+        # print(k, len(cluster), len(cluster_size), clstr_d,  cluster_size[k-1])
         df_cluster = pd.concat([df_cluster, pd.DataFrame(cluster_list)], ignore_index=True)
         self.df_cluster = df_cluster 
         #############################################
@@ -162,8 +172,8 @@ class Inspection_data:
         self.df_Def['MSOP'] = MSOP
         self.df_Def['ERF'] = MAOP/MSOP
         
-        print('VER -> itools.def_critical_limits(dp,t,D,sige, MAOP)')
-        dp_max, Llim = itools.def_critical_limits(dp,t,D,sige, MAOP)
+        # print('VER -> itools.def_critical_limits(dp,t,D,sige, MAOP)')
+        [dp_max, Llim] = sempiric.inverse_modifiedb31g(D, t, L, dp*t, sige, sigu, MAOP)
         
         self.df_Def['L max'] = Llim*1000
         self.df_Def['Max Safety d [%]'] = dp_max
@@ -253,7 +263,83 @@ class Inspection_data:
     #     plt.ylabel('EFR')
     #     plt.title('Insps ' + str(i))
     
+    def cluster_list(self):
+        return self.df_Def.loc[self.df_Def['Single_idx']==0]
+    
+    def ERF_dist_create(self):
+        ERFs = [0.7, 0.8, 0.9, 0.95, 1]
+        ERF_dist=[]
+        N0 = 0
+        i=0
+        for rf in ERFs:
+            print(i,rf)
+            Nt = sum(self.df_Def.ERF<rf)
+            print(i,Nt)
+            if i==0:
+                ERF_dist.append({'N': Nt-N0 ,
+                            'ERF': 'ERF <'+str(ERFs[i]),
+                            })          
+            else:                    
+                ERF_dist.append({'N': Nt-N0 ,
+                            'ERF': str(ERFs[i-1])+' - '+str(ERFs[i]),
+                            })
+            N0 = Nt
+            i+=1
+        Nt = sum(self.df_Def.ERF>rf)
+        ERF_dist.append({'N': Nt ,
+                        'ERF': 'ERF >'+str(rf),
+                        })
         
+        self.ERF_dist = pd.DataFrame(ERF_dist)
+
+    ###################################
+    def critical_def_list(self,cluster_details,ERF_lmt = 0.92, plot_cluster=0,print_critical = 1):
+    # Printing Critical Defects: ERF>0.99
+  
+        # if print_critical:
+        ERF = self.dfg['ERF']
+        test = (ERF>ERF_lmt)
+        id_crit = np.where(test)
+        crit_cluster=[]
+        crit_defs = []
+        ncrtd = sum(test)
+        if ncrtd == 0:
+            print('No Critical Defects: ERF > ', ERF_lmt)
+        else:
+            print('Critical Defects: ERF > ',ERF_lmt)
+            print('Critical Defects found: ',ncrtd)
+        
+            j=0
+            for i in id_crit[0]:
+                j=j+1
+                print('Critical Defect: ', j)
+                print('Details of Defect : ',i)
+                print(self.dfg.iloc[i])
+                
+                # Save
+                crit_defs.append(
+                    self.dfg[[ 
+                        'Log. dist [km]', 'Clock Position', 'Depth[%]', 'length [mm]', 'Width [mm]', 't (mm)','ERF', 'Cluster #'
+                        ]].iloc[i])
+                    
+                
+                if self.dfg['Cluster #'].iloc[i] >0:
+                    # Cluster
+                    print('Cluster details')
+                    id_cluster =  self.df_Def['Cluster #'].iloc[i]
+                    print(cluster_details.loc[id_cluster])
+                    
+                    # Save
+                    crit_cluster.append(cluster_details.loc[id_cluster])
+                    
+                    if plot_cluster:
+                        itools.plot_clusters(cluster_details,id_cluster)
+                        
+        
+        self.crit_defs=pd.DataFrame(crit_defs)
+        self.crit_cluster=crit_cluster
+                    
+    #############################################    
     ##############
     # MAPs
     def plot_map(self, name='', plot_joint=True, plot_defect=True, ERF_min=0.95, ERF_max=1.0, d_min=0.0, save_m=True):
@@ -276,7 +362,6 @@ class Inspection_data:
             self.grid_letter = gl
             
         LL=utm.to_latlon(df.X.to_numpy(),df.Y.to_numpy(),int(gn),gl)
-        print(LL)
         
         LL_mean = np.mean(LL,1)
         m = folium.Map(LL_mean, zoom_starts = 5)
@@ -302,6 +387,8 @@ class Inspection_data:
         ############################################################
         # Plot Defs in map ##############################################
         ############################################################
+        
+            # self.intact = i.sige*((2*i.t)/i.OD)*i.F
             
             mn_erf =  np.min ([ np.mean (self.df_Def["ERF"] ), ERF_min])
             mx_erf = np.max (self.df_Def["ERF"] )

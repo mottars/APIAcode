@@ -226,6 +226,81 @@ def modifiedb31g(D,t,L,d,sige,sigu,thicks=0):
         Q = 0.85*d/t
         pf=P0*((1-Q)/(1-(Q/M)))
     return pf
+
+# In[]
+def inverse_modifiedb31g(D, t, L, d, sige, sigu, pf, thicks=0):
+    # Calculate sflow based on sige
+    # if sige <= 483:
+    #     sflow = sige + 69
+    # else:
+    #     sflow = sige * 1.1
+        
+    sflow = np.where(sige <= 483, sige + 69, sige * 1.1)
+    
+    P0 = sflow * ((2 * t) / D)
+    z = L**2 / (D * t)
+    
+    M = np.where(z > 50, 
+                 0.032 * z + 3.3,
+                 (1 + 0.6275 * z - 0.003375 * (z**2))**0.5)
+    # if z > 50:
+    #     M = 0.032 * z + 3.3
+    # else:
+    #     M = (1 + 0.6275 * z - 0.003375 * (z**2))**0.5
+    
+    # Let's denote A = pf / P0
+    A = pf / P0
+    
+    # Now, solve for Q:    
+    Q = (A - 1) / (A / M - 1)
+    d_max = (Q * t) / 0.85
+    dp_max = d_max/t*100
+    dp_max = np.where(dp_max>100, 100, dp_max)
+    ###############################################
+    
+    # For L_max
+    Q = 0.85 * d / t
+    M = A / ((A - 1) / Q + 1)
+    
+    # We need to solve for z in both cases and check which one is valid.
+    # Case 1: z > 50
+    z_case1 = (M - 3.3) / 0.032
+    
+    # if z_case1 > 50:
+    #     z = z_case1 
+    # else:
+        
+    # Case 2: z <= 50
+    # M = (1 + 0.6275 * z - 0.003375 * z**2)**0.5
+    # Square both sides:
+    # M^2 = 1 + 0.6275 * z - 0.003375 * z^2
+    # Rearrange:
+    # 0.003375 * z^2 - 0.6275 * z + (1 - M^2) = 0
+    # Solve the quadratic equation for z:
+    a = 0.003375
+    b = -0.6275
+    c = 1 - M**2
+    discriminant = b**2 - 4 * a * c
+    if any(discriminant) < 0:
+        print('discriminant < 0 - > ',np.where(discriminant) < 0)
+        raise ValueError("No valid solution for z (discriminant < 0).")
+    
+    z_case2 = (-b + discriminant**0.5) / (2 * a)
+    # z2 = (-b - discriminant**0.5) / (2 * a)
+
+    # Choose the valid z (positive and <= 50)
+    # if z1 > 0 :
+    #     z = z1
+    # else :
+    #     z =  (-b - discriminant**0.5) / (2 * a)
+    #     raise ValueError("No make sense solution for z1 < 0 ?.")
+    
+    z = np.where(z_case1 > 50, z_case1, z_case2)
+    
+    # Now, solve for L using z = L^2 / (D * t)
+    L_max = (z * D * t)**0.5
+    
+    return dp_max, L_max
 # In[]
 def dnvrpf101(D,t,L,d,sige,sigu,thicks=0):
     if(D and t and L and d and sigu):
@@ -330,16 +405,16 @@ def run_database_cases():
         print('Failure Pressure (DNV Complex B)='+str(min(Pj)))
         pfb31g=b31g(D,t,L,d,sy,sigu,thicks)
         print('Failure Pressure (B31G)='+str(pfb31g))
-        pfb31grstreng=b31grstreng(D,t,L,d,sige,su,thicks)
-        print('Failure Pressure (B31G RStreng 0.85)='+str(pfb31grstreng))
-        pfdnvrpf101=dnvrpf101(D,t,L,d,sige,su,thicks)
-        print('Failure Pressure (DNV Single)='+str(pfdnvrpf101))
-        pfeffective_area=effective_area(D,t,L,d,sige,su,thicks)
-        print('Failure Pressure (Effective Area)='+str(min(pfeffective_area)))
+        # pfb31grstreng=b31grstreng(D,t,L,d,sige,su,thicks)
+        # print('Failure Pressure (B31G RStreng 0.85)='+str(pfb31grstreng))
+        # pfdnvrpf101=dnvrpf101(D,t,L,d,sige,su,thicks)
+        # print('Failure Pressure (DNV Single)='+str(pfdnvrpf101))
+        # pfeffective_area=effective_area(D,t,L,d,sige,su,thicks)
+        # print('Failure Pressure (Effective Area)='+str(min(pfeffective_area)))
 #        return thicks
 
 def run_all():
-    normas=[bs7910g,bs7910gMod,b31g,dnvrpf101,dnv_complex_PartB,effective_area,b31grstreng]
+    normas=['bs7910g','bs7910gMod','b31g','dnvrpf101','dnv_complex_PartB','effective_area','b31grstreng']
     Pj=[]
     for kk, norma in enumerate(normas):
         try:

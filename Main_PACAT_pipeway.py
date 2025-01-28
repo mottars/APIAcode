@@ -72,6 +72,7 @@ grid_letter='K'
 sige = 323.412
 sigu = 442.934
 MAOP = 7.97
+F = 0.72
 Insp_type = 'MFL'
 Confid_level=0.85
 Accuracy=0.1
@@ -118,6 +119,7 @@ for i_insp in range(n_inp):
                          grid_letter=grid_letter, 
                          sige = sige, sigu = sigu, 
                          MAOP = MAOP, 
+                         F = F,
                          Insp_type = typ, 
                          Confid_level=conf, Accuracy=acc)
     Insps.append(Inspi)
@@ -129,7 +131,7 @@ print('N of defects\date: ', [[len(i.df_Def), i.date] for i in Insps])
 df_Def = Inspi.df_Def
 if debugon: print('UTM coordinate: ', df_Def.gridzone.iloc[0], ' S ',df_Def.X.iloc[0], df_Def.Y.iloc[0])
 
-
+Insps[-1].barlow_eq()
 ##########################################################################
 # Cluster Identification for last inspection
 Insps[-1].Identify_Cluster( col_names , debugon = debugon)
@@ -151,8 +153,10 @@ for i in range(len(Insps[-1].df_cluster)-1):
     Ls = np.array([df.L.loc[cluster_i.defs].values])
     Ws = np.array([df.W.loc[cluster_i.defs].values])
     ts = np.array([df.t.loc[cluster_i.defs].values])
+    idx= Insps[-1].df_cluster['Cluster #'].iloc[i]
     
-    add_row = {'L': Ls,
+    add_row = {'id': idx,
+               'L': Ls,
                'W': Ws,
                'd': ds,
                'Z': Zs,
@@ -205,7 +209,7 @@ for i in range(len(Insps[-1].df_cluster)-1):
 # # df.sort_index(level=1)
 # Insps[-1].df_cluster = pd.concat(df_clstr)
 # Insps[-1].df_def = df
-Insps[-1].df_Def = pd.concat([Insps[-1].df_Def,df_clstr])
+Insps[-1].df_Def = pd.concat([Insps[-1].df_Def,pd.concat(df_clstr)])
 if plot_match:
     ##########################################################################
     # Matching procedure (between "ij" inspection)
@@ -238,51 +242,6 @@ for i in Insps:
     i.Defects_Analysis(analysis_type = sempiric.modifiedb31g)
 
 
-###################################
-# Printing Critical Defects: ERF>0.99
-print_critical = 1
-ERF_lmt = 0.92
-if print_critical:
-    ERF = Insps[-1].df_Def['ERF']
-    test = (ERF>ERF_lmt)
-    id_crit = np.where(test)
-    ncrtd = sum(test)
-    if ncrtd == 0:
-        print('No Critical Defects: ERF > ', ERF_lmt)
-    else:
-        print('Critical Defects: ERF > ',ERF_lmt)
-        print('Critical Defects found: ',ncrtd)
-    j=0
-    for i in id_crit[0]:
-        j=j+1
-        print('Critical Defect: ', j)
-        print('Details of Defect : ',i)
-        print(Insps[-1].df_Def.iloc[i])
-        if Insps[-1].df_Def['Cluster #'].iloc[i] >0:
-            # Cluster
-            print('Cluster details')
-            id_cluster = Insps[-1].df_Def['Cluster #'].iloc[i]
-            print(cluster_details.loc[id_cluster])
-            Ls = cluster_details.loc[id_cluster].L
-            ts = cluster_details.loc[id_cluster].t
-            ds = cluster_details.loc[id_cluster].d
-            Zs = cluster_details.loc[id_cluster].Z*1000
-            Zs = Zs - (np.min(Zs) - np.max(Ls))
-            x0 = Zs - Ls/2
-            x1 = Zs + Ls/2
-            y0 = ts*(1 - ds/100)
-            y1 = ts
-            plt.figure()
-            for k in range(len(Ls)):
-                plt.plot([x0[k],x1[k],x1[k],x0[k],x0[k]],[y0[k],y0[k],y1[k],y1[k],y0[k]])
-            plt.xlabel('long. dist. (mm)')
-            plt.ylabel('Wall tickness (mm)')
-            plt.title('Cluster Defect ID:'+ str(id_cluster))
-                
-            
-            
-        
-#############################################
 ##############
 # MAPs
 if Plot_Map:
@@ -315,10 +274,19 @@ for i in Insps:
     i.dfg.to_csv('./DataFrames/Defect_Assessment_DF_' + str(i.date) + '.csv')
     i.df_joints.to_csv('./DataFrames/Joints_Inspection_' + str(i.date) + '.csv')   
 
+#############################################
+# Tables
+Insps[-1].ERF_dist_create()
+##############
+
+# Printing Critical Defects: ERF>0.92
+ERF_lmt = 0.92
+Insps[-1].critical_def_list(cluster_details,ERF_lmt, plot_cluster=1)
+
+#############################################
 ##############
 # PLOTS ###
-
-    
+   
 
 if plot_seaborn:
     # plot_seaborns(Inspection,  col_names,ij =[0,1], XY0=[], min_joint_dist = 0.5):
@@ -328,7 +296,7 @@ if plot_seaborn:
 
 if plot_cluster:
     # plot_seaborns(Inspection,  col_names,ij =[0,1], XY0=[], min_joint_dist = 0.5):
-    itools.plot_cluster(Insps[-1].df_cluster)
+    itools.plot_cluster(Insps[-1].cluster_list())
     
     
 ###############################################
