@@ -6,3 +6,7 @@ __pycache__/Algorithms.cpython-311.pyc
 *.png
 *.pyc
 *.docx
+*.pyc
+DataFrames/Critical_Defects_n9.txt
+Files/anomalias_perdaMetal_cluster.tsv
+*.pdf

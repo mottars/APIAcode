@@ -969,15 +969,16 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
 # Plot 
 
     if planar_plot:
-        sns.relplot(x="Easting", y="Northing", size ="length [mm]", hue ="Depth[%]",
-                sizes=(fig_size*6, fig_size*80), alpha=.5, palette=cmap, 
+        ax=sns.relplot(x="Easting", y="Northing", size ="length [mm]", hue ="Depth[%]",
+                sizes=(fig_size*6, fig_size*80), alpha=.5, palette=cmap, edgecolor=None, 
                 height=fig_size*1.5, data=dfg )
         plt.plot(Xpl, Ypl)
+        sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
         
         
         if plot_match:
             sns.relplot(x="Easting", y="Northing", hue ="CGR[%]", size ="Depth[%]",
-                    sizes=(fig_size*6, fig_size*80), alpha=.5, style = "Match",palette=cmap, 
+                    sizes=(fig_size*6, fig_size*80), alpha=.5, edgecolor=None, style = "Match",palette=cmap, 
                     height=fig_size*1.5, data=dfg )
             plt.plot(Xpl, Ypl)
        
@@ -1002,15 +1003,19 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
     
     if longi_plot:
         plt.figure()
-        sns.relplot(x='Log. dist [km]', y='Clock Position', size ="length [mm]", hue ='Depth[%]',
+        ax=sns.relplot(x='Log. dist [km]', y='Clock Position', size ="length [mm]", hue ='Depth[%]',
                 sizes=(fig_size*6, fig_size*80), alpha=.7, edgecolor=None,  palette=cmap ,
                 height=fig_size, data=dfg2, aspect =1.5 )
+        plt.tight_layout()
+        sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
         plt.title('Defects Clock Position')
         plt.savefig('Defects_Clock_Position.png', dpi=300)
         
-        sns.relplot(x='Log. dist [km]', y='Depth[%]', size ="length [mm]", hue ='Width [mm]',
+        ax=sns.relplot(x='Log. dist [km]', y='Depth[%]', size ="length [mm]", hue ='Width [mm]',
                 sizes=(fig_size*6, fig_size*80), alpha=.7, edgecolor=None,  palette=cmap ,
                 height=fig_size, data=dfg2, aspect =1.5 )
+        plt.tight_layout()
+        sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
         plt.title('Defects Sizes')
         plt.savefig('Defects_Sizes.png', dpi=300)
         
@@ -1020,11 +1025,13 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
                     height=fig_size, data=dfg2, aspect =1.5 )
         
         
-        sns.relplot(x='Relative Dist. [m]',y='Depth[%]' , hue ='Log. dist [km]', size ="length [mm]",
+        ax=sns.relplot(x='Relative Dist. [m]',y='Depth[%]' , hue ='Log. dist [km]', size ="length [mm]",
                 sizes=(fig_size*6, fig_size*80), alpha=.7, edgecolor=None,  palette=cmap , style = 'Defect Tube Position',
                 height=fig_size, data=dfg2, aspect =1.5 )
         
         # plt.plot(df_jd['Log. dist [km]'],df_jd['Relative Dist. [m]']*0,marker='x',linewidth=0)
+        plt.tight_layout()
+        sns.move_legend( ax,"upper left", bbox_to_anchor=(1, 1))
         plt.title('Defects Joint Position')
         plt.savefig('Joint_Position.png', dpi=300)
         
@@ -1043,28 +1050,32 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
         # ASSESSMENT
         ################################
         
-        sns.relplot(x='Log. dist [km]', y='MSOP [bar]', size ="length [mm]", hue ='Depth[%]',
+        ax = sns.relplot(x='Log. dist [km]', y='MSOP [bar]', size ="length [mm]", hue ='Depth[%]',
                 sizes=(fig_size*6, fig_size*80), alpha=.7, palette=cmap , style =  't (mm)',
                 height=fig_size, data=dfg2, aspect =1.5 , edgecolor=None)
         plt.plot(df_jd['Log. dist [km]'],df_jd['Relative Dist. [m]']*0+MAOP*10,linewidth=2)
+        plt.tight_layout()
         plt.title('Defects ASSESSMENT')
+        sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
         plt.savefig('Defects_ASSESSMENT.png', dpi=300)
         
         ax = sns.relplot(x='Log. dist [km]', y='ERF', size ="length [mm]", hue ='Depth[%]',
                 sizes=(fig_size*6, fig_size*80), alpha=.7, palette=cmap , style =  't (mm)',
                 height=fig_size, data=dfg2, aspect =1.5, edgecolor=None )
         plt.plot(df_jd['Log. dist [km]'],df_jd['Relative Dist. [m]']*0+1,linewidth=2)
+        plt.tight_layout()
         plt.title('Defects ERF')
         sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
         plt.savefig('Defects_ERF.png', dpi=300)
         
                 
-        sns.relplot(x='Log. dist [km]', y='ERF', size ="length [mm]", hue ='Depth[%]',
-                sizes=(fig_size*6, fig_size*80), alpha=.7, edgecolor=None,  palette=cmap , style =  't (mm)',
-                height=fig_size, data=dfg2, aspect =1.5 )
-        plt.plot(df_jd['Log. dist [km]'],df_jd['Relative Dist. [m]']*0+1,linewidth=2)
-        plt.title('Defects ERF')
-        plt.savefig('Defects_ERF.png', dpi=300)
+        # sns.relplot(x='Log. dist [km]', y='ERF', size ="length [mm]", hue ='Depth[%]',
+        #         sizes=(fig_size*6, fig_size*80), alpha=.7, edgecolor=None,  palette=cmap , style =  't (mm)',
+        #         height=fig_size, data=dfg2, aspect =1.5 )
+        # plt.plot(df_jd['Log. dist [km]'],df_jd['Relative Dist. [m]']*0+1,linewidth=2)
+        # plt.tight_layout()
+        # plt.title('Defects ERF')
+        # plt.savefig('Defects_ERF.png', dpi=300)
         
     # plt.figure()
     # fig, ax = plt.subplots()
@@ -1077,9 +1088,10 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
     # plt.legend()
     
     # fig, ax = plt.subplots(dpi=300)
-    sns.relplot(x="length [mm]", y='Depth[%]', size =100, hue ='ERF',
+    ax=sns.relplot(x="length [mm]", y='Depth[%]', size =100, hue ='ERF',
             sizes=(fig_size*6, fig_size*80), alpha=.7, edgecolor=None,  palette=cmap , style =  't (mm)',
             height=fig_size, data=dfg2, aspect =1.5 )
+    sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
     plt.plot(dfg2['Critical Length '],dfg2['Depth[%]'],linewidth=0, marker='x', color='k', label='Critical (ERF = 1.0)')
     
     # ax.plot(dfg2['Critical Length '],dfg2['Depth[%]'],linewidth=0, marker='x', color='k', label='Critical (ERF = 1.0)')
@@ -1095,11 +1107,12 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
     
     
     fig, ax = plt.subplots(dpi=300)
-    ax.plot(dfg2['length [mm]'],dfg2['Max Safety d [%]'],linewidth=0, marker='x', color='k')
+    ax.plot(dfg2['length [mm]'],dfg2['Max Safety d [%]'],linewidth=0,  marker='x', color='k')
     sns.scatterplot(x="length [mm]", y='Depth[%]', s = 100, hue ='ERF', ax=ax,
-        sizes=(fig_size*6, fig_size*80), alpha=.5, edgecolor=None,  palette=cmap , style =  't (mm)',
+        sizes=(fig_size*6, fig_size*40), alpha=.5, edgecolor=None,  palette=cmap , style =  't (mm)',
          data=dfg2 )
-    
+    plt.tight_layout()
+    sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
     plt.title('Defects Critical Depth')
     plt.savefig('Defects_Critical_Depth.png', dpi=300)
     
@@ -1121,8 +1134,10 @@ def plot_cluster(df_cluster):
     dfg['ERF'] = df_cluster['ERF']
 
         
-    sns.relplot(x='Log. dist [km]', y='ERF', hue ='Depth[%]', size ="length [mm]",
+    ax=sns.relplot(x='Log. dist [km]', y='ERF', hue ='Depth[%]', size ="length [mm]",
             sizes=(fig_size*6, fig_size*80), alpha=.7, edgecolor=None,  palette=cmap , style = 'Cluster defects',
             height=fig_size, data=dfg, aspect =1.5 )
+    plt.tight_layout()
+    sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
     plt.title('Defects Clusters')
     plt.savefig('Defects_Clusters.png', dpi=300)
