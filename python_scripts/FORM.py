@@ -29,9 +29,9 @@ def FORM(M,RV_type,P,fun_G,*args):
     #G=effective_area(X[0],X[1],X[2],StDtd,X[4],thicks)-X[3]
     #G=b31g(X[0],X[1],X[2],min(thicks[:,1]),X[4])-X[3]
     # print('G_0 = '+str(G))
-    Seq=sp.zeros(nRV)
-    Meq=sp.zeros(nRV)
-    dGdx=sp.zeros(nRV)
+    Seq=np.zeros(nRV)
+    Meq=np.zeros(nRV)
+    dGdx=np.zeros(nRV)
     # G_step=2*G
 #    while abs(1-G/G_step)>1e-3:
     ii=0
@@ -91,7 +91,7 @@ def FORM(M,RV_type,P,fun_G,*args):
         Xr = -beta*alpha
         # print("Xr")
         # print(Xr)
-        X = sp.transpose(Xr)*Seq+Meq
+        X = np.transpose(Xr)*Seq+Meq
         
         G=fun_G(X,*args)
         

@@ -61,8 +61,8 @@ datesi = [2006, 2014,  2017]
 spreadsheet_names = spreadsheet_namesi[2:3]
 dates = datesi[2:3]
 
-# spreadsheet_names = ['Apendice_F_reduzido.xlsx']
-spreadsheet_names = ['Apendice_F.xlsx']
+spreadsheet_names = ['Apendice_F_reduzido.xlsx']
+# spreadsheet_names = ['Apendice_F.xlsx']
 dates = [2024]
 
 
@@ -249,7 +249,7 @@ if Plot_Map:
 
 ############################################################
 # Reliability Analysis
-relib_ana=0
+relib_ana=1
 Run_compare_ERF_ProbF=0
 if relib_ana==1:
     
