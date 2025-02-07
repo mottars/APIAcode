@@ -56,8 +56,8 @@ surce_dir = os.curdir+os.sep+'Files'
 # spreadsheet_names = spreadsheet_namesi[2:3]
 # dates = datesi[2:3]
 
-spreadsheet_names = ['Apendice_F_reduzido.xlsx']
-# spreadsheet_names = ['Apendice_F.xlsx']
+# spreadsheet_names = ['Apendice_F_reduzido.xlsx']
+spreadsheet_names = ['Apendice_F.xlsx']
 dates = [2024]
 
 #mm
