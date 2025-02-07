@@ -21,15 +21,7 @@ import time
 import pandas as pd
 import Build_Inspction_Report as BIR
 
-# import Sistema_Cordut.Risk_Module as risk
-# from python_scripts import main_pipe_normas as sempiric
-# import Sistema_Cordut.main_pipe_normas as semi_empiric
 
-# import sys
-# import seaborn as sns
-# import itertools
-# import matplotlib as mpl
-# import python_scripts.main_pipe_normas as normas
 
 
 relib_ana = 1
@@ -49,30 +41,36 @@ plot_hight = 1
 plot_hist = 1
 test_Z = 0
 
+# Reliability Analysis
+relib_ana=0
+Run_compare_ERF_ProbF=0
 
 surce_dir = os.curdir+os.sep+'Files'
 
-spreadsheet_namesi = ['PEN-SCA 2006 resumo.csv',
-                    'PEN-SCA 2014 resumo.csv',
-                    'PEN-SCA 2017 resumo.xlsx']
+# spreadsheet_namesi = ['PEN-SCA 2006 resumo.csv',
+#                     'PEN-SCA 2014 resumo.csv',
+#                     'PEN-SCA 2017 resumo.xlsx']
 
-datesi = [2006, 2014,  2017]
+# datesi = [2006, 2014,  2017]
 
-spreadsheet_names = spreadsheet_namesi[2:3]
-dates = datesi[2:3]
+# spreadsheet_names = spreadsheet_namesi[2:3]
+# dates = datesi[2:3]
 
 spreadsheet_names = ['Apendice_F_reduzido.xlsx']
 # spreadsheet_names = ['Apendice_F.xlsx']
 dates = [2024]
 
-
+#mm
 OD = 14*25.4
+
 
 grid_letter='K'
 sige = 323.412
 sigu = 442.934
 MAOP = 7.97
 F = 0.72
+
+# PIG
 Insp_type = 'MFL'
 Confid_level=0.85
 Accuracy=0.1
@@ -249,8 +247,7 @@ if Plot_Map:
 
 ############################################################
 # Reliability Analysis
-relib_ana=1
-Run_compare_ERF_ProbF=0
+
 if relib_ana==1:
     
     n_Insps = len(Insps)

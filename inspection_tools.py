@@ -254,11 +254,14 @@ def pre_proc_df(df,col_names, Corrosion_comment,XY0=[], debug_on = False):
     col_names = standard_col_names
     depth_col, def_len_col , def_w_col,t_col , X_col  ,Y_col , H_col , gridzone_col , tube_num_col , tube_len_col , weld_dist_col , Z_pos_col , circ_pos_col , surf_pos_col , ERF_col , feature_col = col_names 
     
+    
+    # Nao lembro pra q!!!!!!!!!!!
     numerical_cols = ['d', 'L', 'W', 't', 'X', 'Y', 'H', 'tube_num', 'tube_len', 'ref_dist', 'Z_pos', 'ERF']
     df[numerical_cols] = df[numerical_cols].apply(pd.to_numeric, errors='coerce')
     
     df = df.dropna(subset='X')
     
+    # Gambiarra!!!!!
     if not gridzone_col in df.columns:
         df[gridzone_col]=22
         
