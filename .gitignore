@@ -11,3 +11,4 @@ DataFrames/Critical_Defects_n9.txt
 Files/anomalias_perdaMetal_cluster.tsv
 *.pdf
 *.xlsx
+*.pyc

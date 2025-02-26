@@ -133,7 +133,7 @@ def criar_tabela(doc,A):
     # Adiciona uma tabela com 3 linhas e 3 colunas
     nc = len(A.columns)
     nr = len(A)
-    table = doc.add_table(rows=nr, cols=nc)
+    table = doc.add_table(rows=nr+1, cols=nc)
     table.style = 'Table Grid'
     
     
@@ -149,12 +149,15 @@ def criar_tabela(doc,A):
     # header_cells[6].text = 'Tipo POF'
     
     # Preenche a tabela com dados
+    table.style = 'Light Grid Accent 1'
     doc.add_paragraph()
     for i in range(nr):
         for j in range(nc):
             cell = table.cell(i, j)
             cell.text = f'{A.iloc[i,j]}'
-            
+
+
+
 def pontos_criticos(doc,critical_defects):
     table = doc.add_table(rows=1, cols=7)
     table.style = 'Table Grid'

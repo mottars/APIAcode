@@ -152,7 +152,68 @@ class Inspection_data:
         self.df_Def.d= self.df_Def.d.values + self.df_Def.CGRp*dt
         
         #############################################
-    def Defects_Analysis(self, analysis_type = sempiric.modifiedb31g):
+    def get_pipe_data(self):
+        
+        D  = self.OD/1000
+        t  = self.t0/1000
+        sige = self.sige
+        sigu = self.sigu
+        
+        return D,t,sige,sigu
+    
+    
+    def Defects_Analysis(self, analysis_type = sempiric.modifiedb31g, def_type = 'single', cluster_details=[]):
+                
+
+        MAOP = self.MAOP
+        F = self.F
+        
+        # pipe_data = Inspection_data.get_pipe_data(self)
+        pipe_data = self.get_pipe_data()
+        
+        # Meters
+        # D  = self.OD/1000
+        L  = self.df_Def.L.values/1000
+        t  = self.df_Def.t.values/1000
+        
+        dp = self.df_Def.d.values/100 # dp(%)
+        # d  = dp*t
+        
+        if (def_type.lower()=='single'):
+            MSOP = itools.comput_MSOP(*pipe_data,F,dp,L, unit = 'MPa', method=analysis_type)
+            
+            self.df_Def['MSOP'] = MSOP
+            self.df_Def['ERF'] = MAOP/MSOP
+            
+            # print('VER -> itools.def_critical_limits(dp,t,D,sige, MAOP)')
+            [dp_max, Llim] = sempiric.inverse_modifiedb31g(*pipe_data, L, dp*t, MAOP*F)
+            
+            self.df_Def['L max'] = Llim*1000
+            self.df_Def['Max Safety d [%]'] = dp_max
+            
+        elif (def_type.lower()=='cluster'):
+            # print(*pipe_data) 
+            MSOP, ii = itools.EffArea_clusters(*pipe_data,F,cluster_details, unit = 'MPa')
+            print('pipe_data',*pipe_data) 
+            print('len MSOP',len(MSOP) )
+            # print(ii)
+            self.cluster_MSOP = MSOP
+            self.df_cluster['MSOP_EffArea'] = MSOP
+            self.df_cluster['ERF_EffArea'] = MAOP/MSOP
+            
+            cluster_id = self.df_Def['Single_idx']==0
+            self.df_Def['MSOP_EffArea']=np.nan
+            self.df_Def['MSOP_EffArea'][cluster_id] = MSOP
+            self.df_Def['ERF_EffArea']=np.nan
+            self.df_Def['ERF_EffArea'][cluster_id] = MAOP/MSOP
+            
+        else:
+            print('def_type Not Found: ', def_type, ', expected: Single or Cluster')
+        
+        # MSOP = itools.comput_MSOP(D,t,dp,L,sige,sigu, unit = 'MPa', method=analysis_type)
+        
+        
+    def xxxCluster_Def_EA(self, cluster_details, analysis_type = sempiric.effective_area):
                 
         
         df=self.df_Def
@@ -166,35 +227,7 @@ class Inspection_data:
         
         dp = df.d.values/100 # dp(%)
         # d  = dp*t
-            
-        MSOP = itools.comput_MSOP(D,t,dp,L,sige,sigu, unit = 'MPa', method=analysis_type)
-        
-        self.df_Def['MSOP'] = MSOP
-        self.df_Def['ERF'] = MAOP/MSOP
-        
-        # print('VER -> itools.def_critical_limits(dp,t,D,sige, MAOP)')
-        [dp_max, Llim] = sempiric.inverse_modifiedb31g(D, t, L, dp*t, sige, sigu, MAOP)
-        
-        self.df_Def['L max'] = Llim*1000
-        self.df_Def['Max Safety d [%]'] = dp_max
-        
-        # if hasattr(self, 'df_cluster'):
-        #     df=self.df_cluster
-        #     L  = df.L.values/1000
-        #     t  = df.t.values/1000
-        #     dp = df.d.values/100 # dp(%)
-            
-        #     MSOP = itools.comput_MSOP(D,t,dp,L,sige,sigu, unit = 'MPa', method=analysis_type)
-            
-        #     self.df_cluster['MSOP'] = MSOP
-        #     self.df_cluster['ERF'] = MAOP/MSOP
-            
-        #     print('VER -> itools.def_critical_limits(dp,t,D,sige, MAOP)')
-        #     dp_max, Llim = itools.def_critical_limits(dp,t,D,sige, MAOP)
-            
-        #     self.df_cluster['L max'] = Llim*1000
-        #     self.df_cluster['Max Safety d [%]'] = dp_max*100
-        
+        MSOP = itools.EffArea_clusters(D,t,dp,L,sige,sigu,cluster_details, unit = 'MPa')
         
         
         
@@ -246,22 +279,6 @@ class Inspection_data:
             self.df_Def.loc[idx[j],'StD d'] = StDtd
     
     ############################################################
-    ############################################################
-    #% Reliability plots#
-    # for i in range(n_Insps):
-        
-    #     plt.figure()
-    #     plt.plot(self.df_Def['PF_form'], self.df_Def['ERF'],'.')
-    #     plt.xlabel('PF_form')
-    #     plt.xscale('log')
-    #     plt.ylabel('EFR')
-    #     plt.title('Insps ' + str(i))
-        
-    #     plt.figure()
-    #     plt.plot(self.df_Def['beta'], self.df_Def['ERF'],'.')
-    #     plt.xlabel('beta')
-    #     plt.ylabel('EFR')
-    #     plt.title('Insps ' + str(i))
     
     def cluster_list(self):
         return self.df_Def.loc[self.df_Def['Single_idx']==0]
@@ -297,12 +314,12 @@ class Inspection_data:
     # Printing Critical Defects: ERF>0.99
   
         # if print_critical:
-        ERF = self.dfg['ERF']
-        test = (ERF>ERF_lmt)
-        id_crit = np.where(test)
+        ERF = self.df_Def['ERF']
+        crt_test = (ERF>ERF_lmt)
+        id_crit = np.where(crt_test )
         crit_cluster=[]
         crit_defs = []
-        ncrtd = sum(test)
+        ncrtd = sum(crt_test)
         if ncrtd == 0:
             print('No Critical Defects: ERF > ', ERF_lmt)
         else:
@@ -314,31 +331,31 @@ class Inspection_data:
                 j=j+1
                 print('Critical Defect: ', j)
                 print('Details of Defect : ',i)
-                print(self.dfg.iloc[i])
+                # print(self.dfg.iloc[i])
                 
                 # Save
                 crit_defs.append(
                     self.dfg[[ 
-                        'Log. dist [km]', 'Clock Position', 'Depth[%]', 'length [mm]', 'Width [mm]', 't (mm)','ERF', 'Cluster #'
+                        'Long. dist [km]', 'Clock Position', 'Depth[%]', 'length [mm]', 'Width [mm]', 't (mm)','ERF', 'Cluster #'
                         ]].iloc[i])
                     
                 
                 if self.dfg['Cluster #'].iloc[i] >0:
                     # Cluster
-                    print('Cluster details')
+                    # print('Cluster details')
                     id_cluster =  self.df_Def['Cluster #'].iloc[i]
-                    print(cluster_details.loc[id_cluster])
+                    # print(cluster_details.loc[id_cluster])
                     
                     # Save
                     crit_cluster.append(cluster_details.loc[id_cluster])
                     
                     if plot_cluster:
                         itools.plot_clusters(cluster_details,id_cluster)
-                        
+            
         
         self.crit_defs=pd.DataFrame(crit_defs)
         self.crit_cluster=crit_cluster
-                    
+        return crt_test 
     #############################################    
     ##############
     # MAPs
@@ -380,7 +397,6 @@ class Inspection_data:
         # LL = utm.to_latlon( df.X.to_numpy() , df.X.to_numpy() , df.gridzone.iloc[0], grid_letter)
         # Latitude = LL[0]
         # Longitude = LL[1]
-        
         
         if plot_defect:
         # plot_map('Pipe_joint_Map', joint=true, defect=true)
@@ -452,14 +468,12 @@ class Inspection_data:
                               ).add_to(m)
             
             
-            
             colormap.add_to(m)
             
             # https://python-visualization.github.io/folium/latest/user_guide/geojson/geojson_marker.html#Use-a-Circle-as-a-Marker
             # folium.GeoJson(
             #     gdf,
                     
-            
                 
             if save_m:
                 m.save(name2+'.html')

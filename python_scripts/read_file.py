@@ -1,4 +1,4 @@
-#import xlrd
+import xlrd
 import numpy as np
 
 def read_txt_file(filename, transp=False): 
@@ -19,7 +19,7 @@ def read_txt_file(filename, transp=False):
 
     if (transp == True):
         matrix = np.transpose(matrix)
-
+    # print(matrix)
     return matrix
 
 def read_excel_file(filename, transp=False):
@@ -30,7 +30,7 @@ def read_excel_file(filename, transp=False):
 
     # Change this depending on how many header rows are present
     # Set to 0 if you want to include the header data.
-    offset = 0
+    # offset = 0
 
     rows = []
     for i, row in enumerate(range(worksheet.nrows)):

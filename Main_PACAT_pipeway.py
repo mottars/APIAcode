@@ -24,7 +24,7 @@ import Build_Inspction_Report as BIR
 
 
 
-relib_ana = 1
+relib_ana = 0
 
 # Geolocalização
 Plot_Map = 1
@@ -56,7 +56,7 @@ surce_dir = os.curdir+os.sep+'Files'
 # spreadsheet_names = spreadsheet_namesi[2:3]
 # dates = datesi[2:3]
 
-# spreadsheet_names = ['Apendice_F_reduzido.xlsx']
+# spreadsheet_names = ['Apendice_F_redz.xlsx']
 spreadsheet_names = ['Apendice_F.xlsx']
 dates = [2024]
 
@@ -129,10 +129,18 @@ print('N of defects\date: ', [[len(i.df_Def), i.date] for i in Insps])
 df_Def = Inspi.df_Def
 if debugon: print('UTM coordinate: ', df_Def.gridzone.iloc[0], ' S ',df_Def.X.iloc[0], df_Def.Y.iloc[0])
 
+
+
+
+##########################################################################
 Insps[-1].barlow_eq()
+
+
 ##########################################################################
 # Cluster Identification for last inspection
 Insps[-1].Identify_Cluster( col_names , debugon = debugon)
+
+
 
 ##########################################################################
 # def insert_cluster_rows()
@@ -140,11 +148,11 @@ Insps[-1].Identify_Cluster( col_names , debugon = debugon)
 
 Insps[-1].df_Def['Single_idx'] = Insps[-1].df_Def.index
 df = Insps[-1].df_Def
-# cluster_details DF for RBP - FEA 
-# cluster_details = pd.DataFrame([[np.zeros(0),np.zeros(0),np.zeros(0),np.zeros(0),np.zeros(0)]],columns= ['L','W','d','Z','t'])
+# cluster_details DF for RBP - FEA, Eff Area (EA) 
+
 cluster_details = pd.DataFrame()
 rows = []
-for i in range(len(Insps[-1].df_cluster)-1):
+for i in range(len(Insps[-1].df_cluster)):
     cluster_i = Insps[-1].df_cluster.iloc[i]
     Zs = np.array([df.Z_pos.loc[cluster_i.defs].values])
     ds = np.array([df.d.loc[cluster_i.defs].values])
@@ -160,15 +168,11 @@ for i in range(len(Insps[-1].df_cluster)-1):
                'Z': Zs,
                't': ts}
     rows.append(add_row)
-    # cluster_details.loc[i,'Z']= Zs
-    # cluster_details.loc[i].d= ds
-    # cluster_details.loc[i].L= Ls
-    # cluster_details.loc[i].W= Ws
-    # cluster_details.loc[i].t= ts
+    
 cluster_details = pd.concat([cluster_details, pd.DataFrame(rows)], ignore_index=True)
 cluster_details.index = cluster_details.index+1
 df_clstr=[]
-for i in range(len(Insps[-1].df_cluster)-1):
+for i in range(len(Insps[-1].df_cluster)):
     
     cluster_i = Insps[-1].df_cluster.iloc[i]
     
@@ -195,15 +199,6 @@ for i in range(len(Insps[-1].df_cluster)-1):
     
     df_clstr.append(new_row)
     
-#     df = pd.concat(
-#         [df.loc[:insert_in-1],  # Rows before and including insert_after
-#          new_row,     # New row as a DataFrame
-#          df.loc[insert_in:]],  # Rows after insert_after
-#         # keys=['single','cluster','single'],
-#         # names=['Defect type', 'index']
-#         # ignore_index=False             # dont Reset index
-#     )
-
 # # df.sort_index(level=1)
 # Insps[-1].df_cluster = pd.concat(df_clstr)
 # Insps[-1].df_def = df
@@ -232,13 +227,18 @@ if plot_match:
     Insps[-1].Future_def(Dates, dt, debugon = debugon)
 
 
-
 ##########################################################################
 # Defects Assessment 
 ##########################################################################
 for i in Insps:
     i.Defects_Analysis(analysis_type = sempiric.modifiedb31g)
 
+
+##########################################################################
+# Cluster Defects Assessment via Effective Area
+##########################################################################
+for i in Insps:
+    i.Defects_Analysis(def_type = 'cluster', cluster_details=cluster_details)
 
 ##############
 # MAPs
@@ -278,7 +278,11 @@ Insps[-1].ERF_dist_create()
 
 # Printing Critical Defects: ERF>0.92
 ERF_lmt = 0.92
-Insps[-1].critical_def_list(cluster_details,ERF_lmt, plot_cluster=1)
+crt_test = Insps[-1].critical_def_list(cluster_details,ERF_lmt, plot_cluster=1)
+print ('critical def')
+crt_test = (Insps[-1].df_Def['ERF']>ERF_lmt)
+print ('Level 1= ',Insps[-1].df_Def['ERF'][crt_test])
+print ('Level 1= ',Insps[-1].df_Def['ERF_EffArea'][crt_test])
 
 #############################################
 ##############
