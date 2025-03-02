@@ -12,3 +12,5 @@ Files/anomalias_perdaMetal_cluster.tsv
 *.pdf
 *.xlsx
 *.pyc
+*.pyc
+python_scripts/__pycache__/Risk_Module.cpython-311.pyc

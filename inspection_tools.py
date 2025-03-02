@@ -360,7 +360,7 @@ def pre_proc_df(df,col_names, Corrosion_comment,XY0=[], debug_on = False):
     # Giving the tilte for the plot
     # Inspection[-1].file_col
     plt.title('Features with ML (depth) data')
-    plt.savefig('anomalies_histogram.png', dpi=300)
+    plt.savefig('anomalies_histogram.png', dpi=300, bbox_inches='tight')
     # plt.figure()
     # plt.hist(df_Def[feature_col])
     
@@ -733,7 +733,8 @@ def find_clusters(df_Def, D, debugon):
 #################################################################
 
 ##################################################
-def def_critical_limits(dp,t,D,sige, MAOP):
+# ver sempiric.inverse_modifiedb31g
+def xxxxxxxxxxxxdef_critical_limits(dp,t,D,sige, MAOP):
     # ASME B31g based
     
     a = 2/3*dp
@@ -757,7 +758,7 @@ def def_critical_limits(dp,t,D,sige, MAOP):
 #####################################
 # MSOP (defect assessment)
 #####################################
-def comput_MSOP(D,t,sige,sigu,F,dp,L, unit = 'MPa', method=sempiric.modifiedb31g):
+def comput_MSOP(D,sige,sigu,F,t,dp,L, unit = 'MPa', method=sempiric.modifiedb31g):
    
     # MAOP = 100 #bar
     thicks=[]
@@ -788,7 +789,7 @@ def comput_MSOP(D,t,sige,sigu,F,dp,L, unit = 'MPa', method=sempiric.modifiedb31g
 ##################################################
 
  
-def EffArea_clusters(D,t,sige,sigu, F, cluster_details, unit = 'MPa'):
+def EffArea_clusters(D,sige,sigu, F, cluster_details, unit = 'MPa'):
     PF = []
     ii=[]
     n_cluster = cluster_details.id.size
@@ -798,7 +799,7 @@ def EffArea_clusters(D,t,sige,sigu, F, cluster_details, unit = 'MPa'):
     if n_cluster == 1:
         print(cluster_details)
         Ls = cluster_details.L[0]/1000
-        # ts = cluster_details.t[0]
+        t = cluster_details.t[0]/1000
         ds = cluster_details.d[0]/100
         Zs = cluster_details.Z[0]
         Zs = Zs - (np.min(Zs) - np.max(Ls))
@@ -822,7 +823,7 @@ def EffArea_clusters(D,t,sige,sigu, F, cluster_details, unit = 'MPa'):
     else:
         for i in range(n_cluster):
             Ls = cluster_details.iloc[i].L[0]/1000
-            # ts = cluster_details.iloc[i].t[0]
+            t0 = cluster_details.iloc[i].t[0]/1000
             ds = cluster_details.iloc[i].d[0]/100
             Zs = cluster_details.iloc[i].Z[0]
             Zs = Zs - (np.min(Zs) - np.max(Ls))
@@ -839,7 +840,7 @@ def EffArea_clusters(D,t,sige,sigu, F, cluster_details, unit = 'MPa'):
             # print('mx,my = ',positions, depths)
             # thicks = np.array([positions, t*(1 - np.array(depths)/100)]).T
             # print('thicks = ', thicks)
-            
+            t = np.mean(t0)
             ts = t*(1 - np.array(depths))
                     
             rbp_m = np.array([positions, ts]).T
@@ -927,7 +928,7 @@ def compare_ERF_ProbF(Inspection):
         plt.xscale('log')
         plt.legend( loc='lower left',bbox_to_anchor=(1.05, 0))
         plt.title(tt)
-        plt.savefig(tt+'.png', dpi=300)
+        plt.savefig(tt+'.png', dpi=300, bbox_inches='tight')
 
 
 def grafical_DF(Inspection, XY0=[], min_joint_dist = 0.5):
@@ -1048,8 +1049,8 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
                     height=fig_size*1.5, data=dfg )
             plt.plot(Xpl, Ypl)
        
-    
-        plt.savefig('Geo_Loc.png', dpi=300)
+        plt.tight_layout()
+        plt.savefig('Geo_Loc.png', dpi=300, bbox_inches='tight')
         
         #sns.scatterplot
         
@@ -1074,17 +1075,19 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
                 sizes=(fig_size*6, fig_size*80), alpha=.7, edgecolor=None,  palette=cmap ,
                 height=fig_size, data=dfg2, aspect =1.5 )
         plt.tight_layout()
+        plt.subplots_adjust(top=0.85)  # Increase top margin for title
         sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
         plt.title('Defects Clock Position')
-        plt.savefig('Defects_Clock_Position.png', dpi=300)
+        plt.savefig('Defects_Clock_Position.png', dpi=300, bbox_inches='tight')
         
         ax=sns.relplot(x='Long. dist [km]', y='Depth[%]', size ="length [mm]", hue ='Width [mm]',
                 sizes=(fig_size*6, fig_size*80), alpha=.7, edgecolor=None,  palette=cmap ,
                 height=fig_size, data=dfg2, aspect =1.5 )
         plt.tight_layout()
+        plt.subplots_adjust(top=0.85)  # Increase top margin for title
         sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
         plt.title('Defects Sizes')
-        plt.savefig('Defects_Sizes.png', dpi=300)
+        plt.savefig('Defects_Sizes.png', dpi=300, bbox_inches='tight')
         
         if plot_match:
             sns.relplot(x='Long. dist [km]', y='Depth[%]', hue ='CGR[mm]', size ="length [mm]",
@@ -1098,9 +1101,10 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
         
         # plt.plot(df_jd['Long. dist [km]'],df_jd['Relative Dist. [m]']*0,marker='x',linewidth=0)
         plt.tight_layout()
+        plt.subplots_adjust(top=0.85)  # Increase top margin for title
         sns.move_legend( ax,"upper left", bbox_to_anchor=(1, 1))
         plt.title('Defects Joint Position')
-        plt.savefig('Joint_Position.png', dpi=300)
+        plt.savefig('Joint_Position.png', dpi=300, bbox_inches='tight')
         
         if plot_match:
             sns.relplot(x='Relative Dist. [m]', y='Depth[%]', hue ='CGR[mm]', size ="length [mm]",
@@ -1122,18 +1126,20 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
                 height=fig_size, data=dfg2, aspect =1.5 , edgecolor=None)
         plt.plot(df_jd['Long. dist [km]'],df_jd['Relative Dist. [m]']*0+MAOP*10,linewidth=2)
         plt.tight_layout()
+        plt.subplots_adjust(top=0.85)  # Increase top margin for title
         plt.title('Defects ASSESSMENT')
         sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
-        plt.savefig('Defects_ASSESSMENT.png', dpi=300)
+        plt.savefig('Defects_ASSESSMENT.png', dpi=300, bbox_inches='tight')
         
         ax = sns.relplot(x='Long. dist [km]', y='ERF', size ="length [mm]", hue ='Depth[%]',
                 sizes=(fig_size*6, fig_size*80), alpha=.7, palette=cmap , style =  't (mm)',
                 height=fig_size, data=dfg2, aspect =1.5, edgecolor=None )
         plt.plot(df_jd['Long. dist [km]'],df_jd['Relative Dist. [m]']*0+1,linewidth=2)
         plt.tight_layout()
+        plt.subplots_adjust(top=0.85)  # Increase top margin for title
         sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
         plt.title('Defects ERF')
-        plt.savefig('Defects_ERF.png', dpi=300)
+        plt.savefig('Defects_ERF.png', dpi=300, bbox_inches='tight')
         
         if level2_plot:
 
@@ -1143,9 +1149,10 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
                     height=fig_size, data=dfg2, aspect =1.5 )
             plt.plot(df_jd['Long. dist [km]'],df_jd['Relative Dist. [m]']*0+1,linewidth=2)
             plt.tight_layout()
+            plt.subplots_adjust(top=0.85)  # Increase top margin for title
             sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
             plt.title('Level 2 Assessment')
-            plt.savefig('ERF_EffArea.png', dpi=300)
+            plt.savefig('ERF_EffArea.png', dpi=300, bbox_inches='tight')
             
         # sns.relplot(x='Long. dist [km]', y='ERF', size ="length [mm]", hue ='Depth[%]',
         #         sizes=(fig_size*6, fig_size*80), alpha=.7, edgecolor=None,  palette=cmap , style =  't (mm)',
@@ -1153,7 +1160,7 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
         # plt.plot(df_jd['Long. dist [km]'],df_jd['Relative Dist. [m]']*0+1,linewidth=2)
         # plt.tight_layout()
         # plt.title('Defects ERF')
-        # plt.savefig('Defects_ERF.png', dpi=300)
+        # plt.savefig('Defects_ERF.png', dpi=300, bbox_inches='tight')
         
     # plt.figure()
     # fig, ax = plt.subplots()
@@ -1170,6 +1177,7 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
             sizes=(fig_size*6, fig_size*80), alpha=.7, edgecolor=None,  palette=cmap , style =  't (mm)',
             height=fig_size, data=dfg2, aspect =1.5 )
     sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
+    plt.subplots_adjust(top=0.85)  # Increase top margin for title
     plt.plot(dfg2['Critical Length '],dfg2['Depth[%]'],linewidth=0, marker='x', color='k', label='Critical (ERF = 1.0)')
     
     # ax.plot(dfg2['Critical Length '],dfg2['Depth[%]'],linewidth=0, marker='x', color='k', label='Critical (ERF = 1.0)')
@@ -1181,7 +1189,7 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
     elif i==ij[1]:
         plt.title('Future Assessment')
     plt.title('Defects Critical length')
-    plt.savefig('Defects_Critical_Size.png', dpi=300)
+    plt.savefig('Defects_Critical_Size.png', dpi=300, bbox_inches='tight')
     
     
     fig, ax = plt.subplots(dpi=300)
@@ -1189,10 +1197,11 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
     sns.scatterplot(x="length [mm]", y='Depth[%]', s = 100, hue ='ERF', ax=ax,
         sizes=(fig_size*6, fig_size*40), alpha=.5, edgecolor=None,  palette=cmap , style =  't (mm)',
          data=dfg2 )
+    plt.subplots_adjust(top=0.85)  # Increase top margin for title
     plt.tight_layout()
     sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
     plt.title('Defects Critical Depth')
-    plt.savefig('Defects_Critical_Depth.png', dpi=300)
+    plt.savefig('Defects_Critical_Depth.png', dpi=300, bbox_inches='tight')
     
 def plot_cluster(df_cluster):
     
@@ -1222,16 +1231,21 @@ def plot_cluster(df_cluster):
             sizes=(fig_size*6, fig_size*80), alpha=.7, edgecolor=None,  palette=cmap , style = 'Cluster defects',
             height=fig_size, data=dfg, aspect =1.5 )
     plt.plot(dfg['Long. dist [km]'],dfg['ERF']*0+1,linewidth=2)
-    plt.tight_layout()
-    sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
+
     plt.title('Level 1 Clusters assessmet')
-    plt.savefig('Defects_Clusters_Level 1.png', dpi=300)
+    sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
+    # Critical adjustment for title spacing
+    plt.subplots_adjust(top=0.85)  # Increase top margin for title
+    plt.savefig('Defects_Clusters_Level 1.png', dpi=300, bbox_inches='tight' )
     
     ax=sns.relplot(x='Long. dist [km]', y='Effective Area ERF', hue ='Depth[%]', size ="length [mm]",
             sizes=(fig_size*6, fig_size*80), alpha=.7, edgecolor=None,  palette=cmap , style = 'Cluster defects',
             height=fig_size, data=dfg, aspect =1.5 )
+    
     plt.plot(dfg['Long. dist [km]'],dfg['ERF']*0+1,linewidth=2)
-    plt.tight_layout()
-    sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
+    
     plt.title('Level 2 Clusters assessmet')
-    plt.savefig('Defects_Clusters_Level 2.png', dpi=300)
+    sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
+    # Critical adjustment for title spacing
+    plt.subplots_adjust(top=0.85)  # Increase top margin for title
+    plt.savefig('Defects_Clusters_Level 2.png', dpi=300, bbox_inches='tight' )

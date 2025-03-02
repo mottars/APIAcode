@@ -155,46 +155,46 @@ class Inspection_data:
     def get_pipe_data(self):
         
         D  = self.OD/1000
-        t  = self.t0/1000
+        # t  = self.t0/1000
         sige = self.sige
         sigu = self.sigu
+        F = self.F
+        MAOP = self.MAOP
         
-        return D,t,sige,sigu
+        return D,sige,sigu,F, MAOP
     
     
     def Defects_Analysis(self, analysis_type = sempiric.modifiedb31g, def_type = 'single', cluster_details=[]):
                 
 
         MAOP = self.MAOP
-        F = self.F
         
         # pipe_data = Inspection_data.get_pipe_data(self)
-        pipe_data = self.get_pipe_data()
+        [D,sige,sigu,F, MAOP] = self.get_pipe_data()
         
         # Meters
         # D  = self.OD/1000
-        L  = self.df_Def.L.values/1000
-        t  = self.df_Def.t.values/1000
+        Ls  = self.df_Def.L.values/1000
+        ts  = self.df_Def.t.values/1000
         
         dp = self.df_Def.d.values/100 # dp(%)
         # d  = dp*t
         
         if (def_type.lower()=='single'):
-            MSOP = itools.comput_MSOP(*pipe_data,F,dp,L, unit = 'MPa', method=analysis_type)
+            MSOP = itools.comput_MSOP(D,sige,sigu,F,ts,dp,Ls, unit = 'MPa', method=analysis_type)
             
             self.df_Def['MSOP'] = MSOP
             self.df_Def['ERF'] = MAOP/MSOP
             
             # print('VER -> itools.def_critical_limits(dp,t,D,sige, MAOP)')
-            [dp_max, Llim] = sempiric.inverse_modifiedb31g(*pipe_data, L, dp*t, MAOP*F)
+            [d_max, Llim] = sempiric.inverse_modifiedb31g(D, sige, sigu, ts, Ls, dp*ts, MAOP/F)
             
             self.df_Def['L max'] = Llim*1000
-            self.df_Def['Max Safety d [%]'] = dp_max
+            self.df_Def['Max Safety d [%]'] = d_max/ts*100
             
         elif (def_type.lower()=='cluster'):
             # print(*pipe_data) 
-            MSOP, ii = itools.EffArea_clusters(*pipe_data,F,cluster_details, unit = 'MPa')
-            print('pipe_data',*pipe_data) 
+            MSOP, ii = itools.EffArea_clusters(D,sige,sigu, F, cluster_details, unit = 'MPa')
             print('len MSOP',len(MSOP) )
             # print(ii)
             self.cluster_MSOP = MSOP
@@ -283,7 +283,7 @@ class Inspection_data:
     def cluster_list(self):
         return self.df_Def.loc[self.df_Def['Single_idx']==0]
     
-    def ERF_dist_create(self):
+    def ERF_distrib_create(self):
         ERFs = [0.7, 0.8, 0.9, 0.95, 1]
         ERF_dist=[]
         N0 = 0

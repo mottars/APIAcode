@@ -256,21 +256,25 @@ def modifiedb31g(D,t,L,d,sige,sigu,thicks=0):
     is_valid(D,t,L,d,sige)
     # if(D and t and L and d and sige).all():
     z = L**2/(D*t) 
-    print (z)
-    print (z>50)
-    if np.all(z>50):
-        M=0.032*z+3.3
-        # pf=sflow*((2*t)/D)*(1-d/t)
-    else:
-        M=(1+.6275*z-0.003375*(z**2))**0.5
+    # print (z)
+    # print (z>50)
+    # if np.all(z>50):
+    #     M=0.032*z+3.3
+    #     # pf=sflow*((2*t)/D)*(1-d/t)
+    # else:
+    #     M=(1+.6275*z-0.003375*(z**2))**0.5
+    M = np.where(z > 50, 
+                 0.032 * z + 3.3,
+                 (1 + 0.6275 * z - 0.003375 * (z**2))**0.5)
     Q = 0.85*d/t
     pf=P0*((1-Q)/(1-(Q/M)))
     return pf
 
 # In[]
-def inverse_modifiedb31g(D, t, sige, sigu, L, d,  pf, thicks=0):
+def inverse_modifiedb31g(D, sige, sigu, t, L, d,  pf, thicks=0):
     
     if is_valid(D,t,L,d,sige):
+        # print('D, sige, sigu, t, L, d,  pf',D, sige, sigu, t, L, d,  pf)
 
         # Calculate sflow based on sige
         # if sige <= 483:
@@ -283,6 +287,7 @@ def inverse_modifiedb31g(D, t, sige, sigu, L, d,  pf, thicks=0):
         P0 = sflow * ((2 * t) / D)
         z = L**2 / (D * t)
         
+        print (z)
         M = np.where(z > 50, 
                      0.032 * z + 3.3,
                      (1 + 0.6275 * z - 0.003375 * (z**2))**0.5)
@@ -292,18 +297,22 @@ def inverse_modifiedb31g(D, t, sige, sigu, L, d,  pf, thicks=0):
         #     M = (1 + 0.6275 * z - 0.003375 * (z**2))**0.5
         
         # Let's denote A = pf / P0
-        A = pf / P0
+        R = pf / P0
         
-        # Now, solve for Q:    
-        Q = (A - 1) / (A / M - 1)
+        print(M,R)
+        # Now, solve for Q:
+        Q = (R - 1) / (R / M - 1)
+        print(Q)
         d_max = (Q * t) / 0.85
-        dp_max = d_max/t*100
-        dp_max = np.where(dp_max>100, 100, dp_max)
+        d_max = np.where(d_max>t, t, d_max)
+        
+        # dp_max = d_max/t*100
+        # dp_max = np.where(dp_max>100, 100, dp_max)
         ###############################################
         
         # For L_max
         Q = 0.85 * d / t
-        M = A / ((A - 1) / Q + 1)
+        M = R / ((R - 1) / Q + 1)
         
         # We need to solve for z in both cases and check which one is valid.
         # Case 1: z > 50
@@ -324,7 +333,7 @@ def inverse_modifiedb31g(D, t, sige, sigu, L, d,  pf, thicks=0):
         b = -0.6275
         c = 1 - M**2
         discriminant = b**2 - 4 * a * c
-        if any(discriminant) < 0:
+        if np.any(discriminant < 0):
             print('discriminant < 0 - > ',np.where(discriminant) < 0)
             raise ValueError("No valid solution for z (discriminant < 0).")
         
@@ -343,7 +352,7 @@ def inverse_modifiedb31g(D, t, sige, sigu, L, d,  pf, thicks=0):
         # Now, solve for L using z = L^2 / (D * t)
         L_max = (z * D * t)**0.5
     
-    return dp_max, L_max
+    return d_max, L_max
 # In[]
 def dnvrpf101(D,t,L,d,sige,sigu,thicks=0):
     if is_valid(D,t,L,d,sigu):
@@ -374,7 +383,7 @@ def effective_area(D,t,L,d,sige,sigu,thicks):
     is_valid(D,t,sige,depths)
     # print(thicks)
     # print('len thicks = ',len(thicks))
-    print('Total, D,t,sige , depths1', D,t,sige,depths[0])
+    # print('Total, D,t,sige , depths1', D,t,sige,depths[0])
     for i in range(len(thicks)):
         for j in range(len(thicks)-i-1):
 #            print(j,i,len(thicks-i-2))
@@ -501,79 +510,100 @@ def run_all():
 
 if __name__ == '__main__':
 
+    OD = 14*25.4
+    t0 = 6.4
+    Po = 7.97
+    D = OD/1000
+    t = t0/1000
+    L = 0.118
+    d = t*.46
     
-    # In[DNV Example10]
-    directory=''
-    #datas='DNV_complex_example10.txt' #Depths not remain thicks
-    # file=r'C:\Users\juliop\Documents\cordut-2019-02\trunk\Sistema_Cordut\Modeller\Real_Defect\Reais_Exemp\160.txt' #remain thicks
-    # D=762.0 #mm
-    # t=22.1 #mm
-    # f_u=525.3 #N/mm**2
-    # sigu=f_u
-    # sige=400 #N/mm**2
-    # #file=directory+'\\'+datas
-    # file=datas
-    # depths = np.loadtxt(file,delimiter='\t')
-    # thicks=depths
-    #thicks[:,1]=t-thicks[:,1] #depths2thicks
-    # In[]
-
-    directory='.'
-    file='TS02.txt'
-    D = 813
-    t = 11.45
-    # thicks=rbp_from_3d(r'C:\Users\juliop\Documents\cordut-2019-02\trunk\Sistema_Cordut\Modeller\Real_Defect\Reais_Exemp', i)[0]
-    # atencao!!!! normas tem que ser transpostas mas o codeaster nao precisa
-    thicks = rbp_from_3d(directory,file)
-    # print(thicks)
-    # thicks=np.transpose(np.array(thicks))
+    F = 0.72
+    pipe_data = (0.35559999999999997, 0.0064, 323.412, 442.934)
+    [dm, Llim] = inverse_modifiedb31g(D, 323.412, 442.934, t, L, d, Po/F)
+    # dm = dp_max/100*t
+    P0 = modifiedb31g(D,t,L,d,323.412, 442.934)
+    Ps = modifiedb31g(D,t,L,dm,323.412, 442.934)
+    # Ps = itools.comput_MSOP(*pipe_data, 1, t0/2000, OD/1000)
     
-    sigu = 565.4 
-    sige = 482.6
-    # In[Confiability]
-    #MFL=0, UT=1
-    insp_type=1
-    #Accuracy, relative=MFL, absolute=UT
-    acc_rel_abs=0.5
-    #Safety class Low=0,Normal=1,High=2 
-    safety_class=0
-    #Confidence Level
-    conf=0.9
-
-    # gamma_m=gamma_m(str(insp_type)+str(safety_class))
-    gamma_d,eps_d=gamma_eps_d(acc_rel_abs,conf,insp_type,t)
-    StD=StD_func(acc_rel_abs,conf,insp_type,t)
-
-    # In[Run]
-
-
-
-    #run_all(D,t,L,d,sige,sigu,thicks) 
-    #run_all()          
-    #plt.plot(thicks[:][0],thicks[:][1],'-')
-    #Pj=dnv_complex_PartA(thicks,D,t,StD,eps_d,gamma_d,gamma_m)
-    #Pj=dnv_complex_PartB(thicks,D,t,f_u)
-    # print('thicks = ',thicks)
-    L=(thicks[-1,0]-thicks[0,0])
-    d=t-np.amin(thicks[:,1])
-    start = timer()
-    Pjs=effective_area(D,t,L,d,sige,sigu,thicks)
-    PF = np.min(Pjs)
-    print('PF eff Area: ',PF)
-    # run_all()
-    duration = timer() - start
-    print(duration)
-    # print('Failure Pressure='+str(min(Pj)))
-    #plt.plot(Pj,'-')
-
-    #kwargs unpacking
-    #def a(**kwargs):
-    #    print(kwargs['bola'])
-    #a(**{"bola":[31,2,3]})    
-
-    #D = 812.8
-    #t = 19.10# mm
-    #f_u = 530.9 #N/mm2 (X65)
-    #l = 203.2 #mm
-    #d = 13.4 #mm
+    print('Pmax = ', Po)
+    print('d0 , Pmax0 = ', d/t , P0*F)
+    print('dcrit , Pmcrit = ', dm/t , Ps*F)
+    
+        
+    if 0:
+        # In[DNV Example10]
+        directory=''
+        #datas='DNV_complex_example10.txt' #Depths not remain thicks
+        # file=r'C:\Users\juliop\Documents\cordut-2019-02\trunk\Sistema_Cordut\Modeller\Real_Defect\Reais_Exemp\160.txt' #remain thicks
+        # D=762.0 #mm
+        # t=22.1 #mm
+        # f_u=525.3 #N/mm**2
+        # sigu=f_u
+        # sige=400 #N/mm**2
+        # #file=directory+'\\'+datas
+        # file=datas
+        # depths = np.loadtxt(file,delimiter='\t')
+        # thicks=depths
+        #thicks[:,1]=t-thicks[:,1] #depths2thicks
+        # In[]
+    
+        directory='.'
+        file='TS02.txt'
+        D = 813
+        t = 11.45
+        # thicks=rbp_from_3d(r'C:\Users\juliop\Documents\cordut-2019-02\trunk\Sistema_Cordut\Modeller\Real_Defect\Reais_Exemp', i)[0]
+        # atencao!!!! normas tem que ser transpostas mas o codeaster nao precisa
+        thicks = rbp_from_3d(directory,file)
+        # print(thicks)
+        # thicks=np.transpose(np.array(thicks))
+        
+        sigu = 565.4 
+        sige = 482.6
+        # In[Confiability]
+        #MFL=0, UT=1
+        insp_type=1
+        #Accuracy, relative=MFL, absolute=UT
+        acc_rel_abs=0.5
+        #Safety class Low=0,Normal=1,High=2 
+        safety_class=0
+        #Confidence Level
+        conf=0.9
+    
+        # gamma_m=gamma_m(str(insp_type)+str(safety_class))
+        gamma_d,eps_d=gamma_eps_d(acc_rel_abs,conf,insp_type,t)
+        StD=StD_func(acc_rel_abs,conf,insp_type,t)
+    
+        # In[Run]
+    
+    
+    
+        #run_all(D,t,L,d,sige,sigu,thicks) 
+        #run_all()          
+        #plt.plot(thicks[:][0],thicks[:][1],'-')
+        #Pj=dnv_complex_PartA(thicks,D,t,StD,eps_d,gamma_d,gamma_m)
+        #Pj=dnv_complex_PartB(thicks,D,t,f_u)
+        # print('thicks = ',thicks)
+        L=(thicks[-1,0]-thicks[0,0])
+        d=t-np.amin(thicks[:,1])
+        start = timer()
+        Pjs=effective_area(D,t,L,d,sige,sigu,thicks)
+        PF = np.min(Pjs)
+        print('PF eff Area: ',PF)
+        # run_all()
+        duration = timer() - start
+        print(duration)
+        # print('Failure Pressure='+str(min(Pj)))
+        #plt.plot(Pj,'-')
+    
+        #kwargs unpacking
+        #def a(**kwargs):
+        #    print(kwargs['bola'])
+        #a(**{"bola":[31,2,3]})    
+    
+        #D = 812.8
+        #t = 19.10# mm
+        #f_u = 530.9 #N/mm2 (X65)
+        #l = 203.2 #mm
+        #d = 13.4 #mm
 

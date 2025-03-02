@@ -56,27 +56,25 @@ def compute_depth_profile(intervals, depths):
     
     return position, ds
 
-def plot_defects(positions, depths):
+def plot_defects(positions, depths, title = 'Defect Depth Profile'):
     """
     Plot the defect profile with depth transitions at interval boundaries.
     """
-        
-    # Sort for plotting
-    # order = np.argsort(positions)
-    # positions = np.array(positions)[order]
-    # depths = np.array(depths)[order]
     
     # Plot
-    plt.figure(figsize=(10, 6))
-    plt.plot(positions, 1-np.array(depths), 'b-', linewidth=2, label="Defect Profile")
+    plt.figure(figsize=(6, 2))
+    plt.plot(positions, 1-np.array(depths), 'b-', linewidth=1.5, label="Defect Profile")
     plt.fill_between(positions, 1-np.array(depths), color='lightblue', alpha=0.5)
     
     plt.xlabel("Position")
     plt.ylabel("Depth")
-    plt.title("Defect Depth Profile")
+    plt.title(title)
     plt.grid(True)
     plt.legend()
-    plt.show()
+    filename = title.replace(':', '')
+    filename = filename.replace(' ', '_')
+    print('save plot: ', filename+'.png')
+    plt.savefig(filename+'.png', dpi=300)
     
 # In[main]
 if __name__ == '__main__':

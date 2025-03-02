@@ -273,18 +273,30 @@ for i in Insps:
 
 #############################################
 # Tables
-Insps[-1].ERF_dist_create()
+Insps[-1].ERF_distrib_create()
 ##############
 
+#############################################
 # Printing Critical Defects: ERF>0.92
 ERF_lmt = 0.92
-crt_test = Insps[-1].critical_def_list(cluster_details,ERF_lmt, plot_cluster=1)
+crt_test = Insps[-1].critical_def_list(cluster_details,ERF_lmt, plot_cluster=0)
 print ('critical def')
 crt_test = (Insps[-1].df_Def['ERF']>ERF_lmt)
 print ('Level 1= ',Insps[-1].df_Def['ERF'][crt_test])
-print ('Level 1= ',Insps[-1].df_Def['ERF_EffArea'][crt_test])
+print ('Level 2= ',Insps[-1].df_Def['ERF_EffArea'][crt_test])
 
+
+#crt_test = Insps[-1].critical_def_list(cluster_details,ERF_lmt, plot_cluster=1)
+crt_details = cluster_details.iloc[Insps[-1].df_Def['Cluster #'][crt_test]-1]
+
+import cluster_EffectArea as cea
+for cid in crt_details.id:
+    pp,dd=cea.create_intervals(crt_details.loc[cid])
+    cea.plot_defects(pp,dd, title = 'Cluster Defect Profile: '+str(cid))
+    
 #############################################
+
+
 ##############
 # PLOTS ###
    
