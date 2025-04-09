@@ -533,3 +533,7 @@ end_time = time.process_time()
 cpu_time = end_time - start_time
 
 print(f"CPU time taken: {cpu_time:.2f} seconds")
+
+# import pickle as pk
+# with open('Inspection_file.pickle', 'wb') as f:
+#     pk.dump(Insps, f)

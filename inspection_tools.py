@@ -978,6 +978,10 @@ def grafical_DF(Inspection, XY0=[], min_joint_dist = 0.5):
     dfg['t (mm)'] = Inspection.df_Def.t
     # dfg['Surface Position'] = Inspection.df_Def.d
     
+    
+    dfg['beta'] = Inspection.df_Def['beta']
+    dfg['PF'] = Inspection.df_Def['PF_form']
+    
     dfg['Max Safety d [%]'] = Inspection.df_Def['Max Safety d [%]']
     dfg['Critical Length '] = Inspection.df_Def['L max']
     
@@ -1277,3 +1281,4 @@ def plot_cluster(df_cluster):
     # Critical adjustment for title spacing
     plt.subplots_adjust(top=0.85)  # Increase top margin for title
     plt.savefig('Defects_Clusters_Level 2.png', dpi=300, bbox_inches='tight' )
+
