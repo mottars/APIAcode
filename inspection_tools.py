@@ -200,12 +200,12 @@ def get_spreadsheet_labels(Labels, debugon = False):
     # print(Corrosion_comment)
     return col_names , Corrosion_comment
 
-def time_to_rad(times):
+def time_to_prec(times):
     # Circunferencial position
     # ndata = len(time)
     
-    sec360 = 43200*2 #12*60*60 *2 (24)
-    
+    sec360 = 43200 #12*60*60  (12)    
+        
     try:
         # Pandas.to_datetime data type
         secnds_i = times.dt.hour*3600 + times.dt.minute*60 + times.dt.second
@@ -213,9 +213,30 @@ def time_to_rad(times):
         # datetime.time data type
         secnds_i = times.apply(lambda x: x.hour*3600 + x.minute*60 + x.second) 
         
-    rad = secnds_i/sec360
+    percirc = secnds_i/sec360
     
-    return rad
+    return percirc
+
+
+def perc_to_time(perc ):
+    # Circunferencial position
+    # ndata = len(time)
+    
+    sec360 = 43200 #12*60*60  (12)
+    Ttime = perc*sec360
+    h=np.trunc(Ttime/3600)
+    
+    rest_h=np.mod(Ttime, 3600)
+    m=np.trunc(rest_h/60)
+    # rest_m=np.mod(rest_h, 60)
+    # s=np.trunc(rest_m/60)
+    
+    try:
+        time = f'{int(h)}:{int(m)}'
+    except:
+        time=[f'{int(i)}:{int(j)}' for i,j in zip(h,m) ]
+    
+    return time
 
 def plot_clusters(cluster_details,id_cluster):
     
@@ -390,14 +411,14 @@ def pre_proc_df(df,col_names, Corrosion_comment,XY0=[], debug_on = False):
     # print(type(df_Def[circ_pos_col].loc[i_nnan]))
     if isinstance(df_Def[circ_pos_col].iloc[0], datt.time):
         print('in time: ', df_Def[circ_pos_col].iloc[0])
-        rad = time_to_rad(df_Def[circ_pos_col])
+        perc = time_to_prec(df_Def[circ_pos_col])
         
     elif isinstance(df_Def[circ_pos_col].iloc[0], str):
         print('in str: ', df_Def[circ_pos_col].iloc[0])
         a = df_Def[circ_pos_col]
         circ_pos = pd.to_datetime(a, format='mixed')
-        rad = time_to_rad(circ_pos)
-    df_Def[circ_pos_col] = rad
+        perc = time_to_prec(circ_pos)
+    df_Def[circ_pos_col] = perc
     #################################################
     
     # df_Def=df_Def[[df_Def[feature_col]==Corrosion_comment].index]
@@ -943,7 +964,11 @@ def grafical_DF(Inspection, XY0=[], min_joint_dist = 0.5):
     dfg['Long. dist [km]'] = Inspection.df_Def.Z_pos/1000
     
     dfg['Depth[%]'] = Inspection.df_Def.d
-    dfg['Clock Position'] = Inspection.df_Def.clock_pos
+    
+    # time = perc_to_time(Inspection.df_Def.clock_pos)
+    # dfg['Clock Position'] = time
+    dfg['Clock Position (h)'] = Inspection.df_Def.clock_pos*12
+    
     dfg['length [mm]'] = Inspection.df_Def.L
     dfg['Width [mm]'] = Inspection.df_Def.W
     dfg['MSOP [bar]'] = Inspection.df_Def['MSOP']*10
@@ -1071,7 +1096,7 @@ def plot_seaborns(Inspection,  col_names,ij =[0,1],plot_match=1, XY0=[], min_joi
     
     if longi_plot:
         plt.figure()
-        ax=sns.relplot(x='Long. dist [km]', y='Clock Position', size ="length [mm]", hue ='Depth[%]',
+        ax=sns.relplot(x='Long. dist [km]', y='Clock Position (h)', size ="length [mm]", hue ='Depth[%]',
                 sizes=(fig_size*6, fig_size*80), alpha=.7, edgecolor=None,  palette=cmap ,
                 height=fig_size, data=dfg2, aspect =1.5 )
         plt.tight_layout()
@@ -1209,11 +1234,14 @@ def plot_cluster(df_cluster):
     fig_size = 4 #[3 to 8]
     
     # df_cluster = pd.DataFrame(columns=['d', 'L', 'w', 'Z_pos', 'clock_pos', 'Cluster #', 'Cluster defects'])
-    dfg = pd.DataFrame([],columns=['Depth[%]', 'length [mm]', 'Long. dist [km]', 'Clock Position'])
+    dfg = pd.DataFrame([],columns=['Depth[%]', 'length [mm]', 'Long. dist [km]', 'Clock Position (h)'])
     dfg['Long. dist [km]'] = df_cluster.Z_pos/1000
     
     dfg['Depth[%]'] = df_cluster.d
-    dfg['Clock Position'] = df_cluster.clock_pos
+    # time = perc_to_time(df_cluster.clock_pos)
+    # dfg['Clock Position'] = time
+    dfg['Clock Position (h)'] = df_cluster.clock_pos*12
+    
     dfg['length [mm]'] = df_cluster.L
     dfg['Width [mm]'] = df_cluster.W
     

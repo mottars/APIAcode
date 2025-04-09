@@ -21,10 +21,9 @@ import time
 import pandas as pd
 import Build_Inspction_Report as BIR
 
+import Generate_Inspection_Map as GIM
 
 
-
-relib_ana = 0
 
 # Geolocalização
 Plot_Map = 1
@@ -42,7 +41,7 @@ plot_hist = 1
 test_Z = 0
 
 # Reliability Analysis
-relib_ana=0
+relib_ana=1
 Run_compare_ERF_ProbF=0
 
 surce_dir = os.curdir+os.sep+'Files'
@@ -243,7 +242,7 @@ for i in Insps:
 ##############
 # MAPs
 if Plot_Map:
-    [m,df_crt] = Insps[-1].plot_map('Pipe_Map_PipeWay', d_min=15)
+    [m,df_crt] = GIM.plot_map(Insps[-1],'Pipe_Map_PipeWay', d_min=30)
 
 ############################################################
 # Reliability Analysis
@@ -310,7 +309,6 @@ if plot_seaborn:
 if plot_cluster:
     # plot_seaborns(Inspection,  col_names,ij =[0,1], XY0=[], min_joint_dist = 0.5):
     itools.plot_cluster(Insps[-1].cluster_list())
-    
     
 ###############################################
 ### REFORMATING -> PAREI AQUI

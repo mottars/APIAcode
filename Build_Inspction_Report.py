@@ -136,7 +136,6 @@ def criar_tabela(doc,A):
     table = doc.add_table(rows=nr+1, cols=nc)
     table.style = 'Table Grid'
     
-    
     header_cells = table.rows[0].cells
     for i, column_name in enumerate(A.columns):
         header_cells[i].text = column_name
@@ -148,14 +147,15 @@ def criar_tabela(doc,A):
     # header_cells[5].text = 'ERF'
     # header_cells[6].text = 'Tipo POF'
     
+    
+    
     # Preenche a tabela com dados
     table.style = 'Light Grid Accent 1'
     doc.add_paragraph()
     for i in range(nr):
         for j in range(nc):
-            cell = table.cell(i, j)
+            cell = table.cell(i+1, j)
             cell.text = f'{A.iloc[i,j]}'
-
 
 
 def pontos_criticos(doc,critical_defects):
@@ -346,8 +346,6 @@ def Criar_Relatorio(file_name = 'Relatorio_de_Inspecao.docx', insp=[]):
                 # elif tabn==1:
                 #     criar_tabela(doc,insp.tab2)
                 
-                
-                    
                 tabn+=1
             doc = configuraTexto(doc, tt)
         

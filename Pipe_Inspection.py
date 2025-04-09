@@ -16,12 +16,6 @@ import inspection_tools as itools
 from python_scripts import Risk_Module as risk
 from python_scripts import main_pipe_normas as sempiric
 
-# MAPS
-import folium 
-import utm
-import geopandas as geopd
-import branca.colormap as cm
-
 
 class Inspection_data:
     def __init__(self, file_name, date, OD, surce_dir='',future=False, grid_letter='J', sige = 485, sigu = 565, MAOP = 10, Insp_type = 'MFL',Confid_level=0.85, Accuracy=0.1, acc_rel =-1, F = 0.72):
@@ -336,7 +330,7 @@ class Inspection_data:
                 # Save
                 crit_defs.append(
                     self.dfg[[ 
-                        'Long. dist [km]', 'Clock Position', 'Depth[%]', 'length [mm]', 'Width [mm]', 't (mm)','ERF', 'Cluster #'
+                        'Long. dist [km]', 'Clock Position (h)', 'Depth[%]', 'length [mm]', 'Width [mm]', 't (mm)','ERF', 'Cluster #'
                         ]].iloc[i])
                     
                 
@@ -357,128 +351,4 @@ class Inspection_data:
         self.crit_cluster=crit_cluster
         return crt_test 
     #############################################    
-    ##############
-    # MAPs
-    def plot_map(self, name='', plot_joint=True, plot_defect=True, ERF_min=0.95, ERF_max=1.0, d_min=0.0, save_m=True):
-
-        if len(name)==0:
-            name = self.file_name+'_Map'
-            
-            
-        #https://www.movable-type.co.uk/scripts/latlong-utm-mgrs.html
-        #Latitude/Northing: n/a / 7585382.088 m
-        #Longitude/Easting: n/a / 710594.426 m
-        df = self.df_joints.copy()
-        ## utm.to_latlon() function may change the Y value, use df = self.df_joints.copy() instead
-        
-        
-        [gn, gl, get_gl]=itools.gridzone_set(df.gridzone.iloc[0], self.grid_letter)
-        if get_gl:
-            gl = self.grid_letter
-        else:
-            self.grid_letter = gl
-            
-        LL=utm.to_latlon(df.X.to_numpy(),df.Y.to_numpy(),int(gn),gl)
-        
-        LL_mean = np.mean(LL,1)
-        m = folium.Map(LL_mean, zoom_starts = 5)
-        
-        if plot_joint:
-            
-            coordinates = list(zip(*LL))
-            
-            folium.PolyLine(
-                locations=coordinates,
-                color="slategray",
-                weight=5,
-                tooltip= f"Pipeline xxx  with defects ERF > {ERF_min:.02f} and d > {d_min:.02f}%" ,
-            ).add_to(m)
-        
-        # LL = utm.to_latlon( df.X.to_numpy() , df.X.to_numpy() , df.gridzone.iloc[0], grid_letter)
-        # Latitude = LL[0]
-        # Longitude = LL[1]
-        
-        if plot_defect:
-        # plot_map('Pipe_joint_Map', joint=true, defect=true)
-        ############################################################
-        # Plot Defs in map ##############################################
-        ############################################################
-        
-            # self.intact = i.sige*((2*i.t)/i.OD)*i.F
-            
-            mn_erf =  np.min ([ np.mean (self.df_Def["ERF"] ), ERF_min])
-            mx_erf = np.max (self.df_Def["ERF"] )
-            ERF_crt = np.min ( [np.round((mx_erf+mn_erf)/2,2), ERF_min])
-            
-            print('ERF_crt : ',ERF_crt,'ERF_max: ', mx_erf,'ERF_mean: ', mn_erf)
-            
-            critic = (self.df_Def["ERF"] > ERF_crt) & (self.df_Def["d"] > d_min)
-            # df=self.df_Def.copy().loc[critic]
-            df_crt = self.df_Def.loc[critic].copy()
-            
-            print('N critic: ',len(df_crt))
-            df_crt.reset_index(drop = True)
-            
-            
-            [gn, gl, get_gl]=itools.gridzone_set(df.gridzone.iloc[0], self.grid_letter)
-            if get_gl:
-                gl = self.grid_letter
-            
-            LL=utm.to_latlon(df_crt.X.to_numpy(),df_crt.Y.to_numpy(),int(gn),gl)
-
-            ############################################################
-            # ................................... geopandas
-            df_crt['Lat'] = LL[0]
-            df_crt['Long'] = LL[1]
-            gdf = geopd.GeoDataFrame(
-                df_crt, geometry=geopd.points_from_xy(df_crt.Long, df_crt.Lat), crs="EPSG:4326"
-            )
-            
-            colormap= cm.LinearColormap(["blue", "green", "yellow", "red", "darkred"], vmin=ERF_crt, vmax=1.0,
-                                        caption="ERF")
-            
-            gdf['ERF']=gdf['ERF'].fillna(0.3)
-            gdf['color'] = gdf['ERF'].apply(colormap)
-            gdf['radii'] = gdf['d']*3+70 #(gdf['L']**.5)
-            # m = folium.Map(location=[(gdf.geometry.y).mean(), (gdf.geometry.x).mean()], zoom_start=4)
-            
-            name2=name + "Defects GeoData"
-            gdf= gdf.drop(['Cluster list'], axis=1)
-            folium.GeoJson(gdf, 
-                           marker=folium.Circle(radius=10, fill_color="orange", fill_opacity=0.5, color="black", weight=0),
-                           tooltip=folium.GeoJsonTooltip(fields=["feature", "ERF", "d", "L", "Lat","Long", 'Cluster #', 'surf_pos']),
-                           style_function=lambda x: {
-                                    "fillColor": x['properties']['color'],
-                                    "radius": x['properties']['radii'],
-                                    # "fillOpacity": x['properties']['ERF'],
-                                },
-                           highlight_function=lambda x: {"fillOpacity": 0.1},# x['properties']['ERF']},
-                           zoom_on_click=True,
-                           ).add_to(m)
-            # folium.GeoJson(gdf, 
-            #                marker=folium.Marker(
-            #                    icon=folium.DivIcon(html=f"""<div style="font-family: Tahoma ; font-size: 1.5em; color: {color};">{value:.2f}</div>""")
-            #                name="Defects GeoData"
-            #                ).add_to(m)
-            
-            # icon=folium.DivIcon(html=f"""<div style="font-family: Verdana; color: collors>{"{:.0f}".format(temp)}</div>""")
-            for lat, lon, value, color in zip(gdf['Lat'],gdf['Long'],gdf['ERF'],gdf['color']):
-                folium.Marker(location=[lat,lon],
-                              icon=folium.DivIcon(html=f"""<div style="font-family: Tahoma ; font-size: 1em; color: {color};"><b>+ &nbsp {value:.2f}<b></div>""")
-                              ).add_to(m)
-            
-            
-            colormap.add_to(m)
-            
-            # https://python-visualization.github.io/folium/latest/user_guide/geojson/geojson_marker.html#Use-a-Circle-as-a-Marker
-            # folium.GeoJson(
-            #     gdf,
-                    
-                
-            if save_m:
-                m.save(name2+'.html')
-                print("saved Pipi_Defects: "+name)
-        
-        return m, df_crt
-       
-##########################################################################
+    
