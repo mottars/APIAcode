@@ -19,7 +19,7 @@ import branca.colormap as cm
 ##############
 # MAPs
 
-def plot_defect_selection(df, m, grupMark, grupERF, colormap, gn, gl):
+def plot_defect_selection(df, m, grupMark, grupERF, colormap, gn, gl, level = 1, shift_num=0, data_column = 'ERF'):
     
     
     df.reset_index(drop = True)
@@ -38,8 +38,20 @@ def plot_defect_selection(df, m, grupMark, grupERF, colormap, gn, gl):
         df, geometry=geopd.points_from_xy(df.Long, df.Lat), crs="EPSG:4326"
     )
     
-    gdf['ERF']=gdf['ERF'].fillna(0.3)
-    gdf['color'] = gdf['ERF'].apply(colormap)
+    if level == 1:
+        gdf[data_column]=gdf[data_column].fillna(0.3)
+        gdf['color'] = gdf[data_column].apply(colormap)
+    elif level == 2:
+        gdf[data_column]=gdf['ERF_EffArea'].fillna(0.3)
+        gdf['color'] = gdf['ERF_EffArea'].apply(colormap)
+    elif level == 3:
+        gdf[data_column]=gdf['ERF_FEM'].fillna(0.3)
+        gdf['color'] = gdf['ERF_FEM'].apply(colormap)
+    elif level == 4:
+        gdf[data_column]=gdf['PF_form'].fillna(1e-22)
+        gdf['color'] = gdf['PF_form'].apply(colormap)
+
+            
     gdf['radii'] = gdf['d']*3+100 #(gdf['L']**.5)
     # m = folium.Map(location=[(gdf.geometry.y).mean(), (gdf.geometry.x).mean()], zoom_start=4)
     
@@ -64,15 +76,35 @@ def plot_defect_selection(df, m, grupMark, grupERF, colormap, gn, gl):
     #                ).add_to(m)
     
     # icon=folium.DivIcon(html=f"""<div style="font-family: Verdana; color: collors>{"{:.0f}".format(temp)}</div>""")
-    for lat, lon, value, color in zip(gdf['Lat'],gdf['Long'],gdf['ERF'],gdf['color']):
-        grupERF.add_child(
-            folium.Marker(location=[lat,lon],
-                          icon=folium.DivIcon(html=f"""<div style="font-family: Tahoma ; font-size: 1em; color: {color};"><b>+ &nbsp {value:.2f}<b></div>""")
-                          )
-            )
+    for lat, lon, value, color in zip(gdf['Lat'],gdf['Long'],gdf[data_column],gdf['color']):
+        if shift_num:
+            grupERF.add_child(
+                folium.Marker(location=[lat,lon],
+                              icon=folium.DivIcon(html=f"""<div style="font-family: Tahoma ; font-size: 1em; color: {color};"><b>+<b></div>""")
+                              )
+                )
+            if level == 4:
+                grupERF.add_child(
+                    folium.Marker(location=[lat+shift_num,lon+shift_num],
+                                  icon=folium.DivIcon(html=f"""<div style="font-family: Tahoma ; font-size: 1em; color: {color};"> <b>  {value:.2e} <b> </div>""")
+                                  )
+                    )
+            else:
+                grupERF.add_child(
+                    folium.Marker(location=[lat+shift_num,lon+shift_num],
+                                  icon=folium.DivIcon(html=f"""<div style="font-family: Tahoma ; font-size: 1em; color: {color};"><b> &nbsp {value:.2f}<b></div>""")
+                                  )
+                    )
+
+        else:
+            grupERF.add_child(
+                folium.Marker(location=[lat+shift_num,lon+shift_num],
+                              icon=folium.DivIcon(html=f"""<div style="font-family: Tahoma ; font-size: 1em; color: {color};"><b>+ &nbsp {value:.2f}<b></div>""")
+                              )
+                )
     
 
-def plot_map(Inspection, name='', plot_joint=True, plot_defects=True, ERF_min=0.95, ERF_max=1.0, d_min=20.0, save_m=True, max_number_of_features_shown = 5000):
+def plot_map(Inspection, name='', plot_joint=True, plot_defects=True, ERF_min=0.95, ERF_max=1.0, d_min=20.0, PF_crit = 1e-4, save_m=True, max_number_of_features_shown = 5000):
 
     if len(name)==0:
         name = Inspection.file_name+'_Map'
@@ -94,7 +126,20 @@ def plot_map(Inspection, name='', plot_joint=True, plot_defects=True, ERF_min=0.
     LL=utm.to_latlon(df.X.to_numpy(),df.Y.to_numpy(),int(gn),gl)
     
     LL_mean = np.mean(LL,1)
-    m = folium.Map(LL_mean, zoom_starts = 5, control=False)
+    m = folium.Map(LL_mean, name = 'Open Map', zoom_starts = 5, control=False)
+    folium.TileLayer('opentopomap', show = False, name = 'Topographic Map').add_to(m)
+    
+    folium.TileLayer(
+        tiles = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        attr = 'Esri',
+        name = 'Esri Satellite',
+        overlay = False,
+        show = False,
+       ).add_to(m)
+    
+    # folium.TileLayer('Stadia.AlidadeSatellite', name = 'Satellite',
+    #                  attr =  '&copy; CNES, Distribution Airbus DS, &copy; Airbus DS, &copy; PlanetObserver (Contains Copernicus Data) | &copy; <a href="https://stadiamaps.com/" target="_blank">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>', 
+    #                  ).add_to(m)
     
     if plot_joint:
         
@@ -133,22 +178,6 @@ def plot_map(Inspection, name='', plot_joint=True, plot_defects=True, ERF_min=0.
         
         colormap= cm.LinearColormap(["blue", "green", "yellow", "red", "darkred"], vmin=mn_erf, vmax=1.0,
                                 caption="ERF")
-    
-        critic = (Inspection.df_Def["ERF"] > ERF_crt) & (Inspection.df_Def["d"] > d_min)
-        
-        n_selection = sum(critic)
-        def_mark_group = folium.FeatureGroup(name=f"Critical Defects: ERF > {ERF_min:.02f}  ({n_selection})").add_to(m)
-        
-        # def_ERF_group = folium.FeatureGroup(name="ERF Critical Defect").add_to(m)
-        
-        
-        critic = (Inspection.df_Def["ERF"] > ERF_crt) & (Inspection.df_Def["d"] > d_min)
-        # df=Inspection.df_Def.copy().loc[critic]
-        df_crt = Inspection.df_Def.loc[critic].copy()
-        
-        print('N critic: ', n_selection)
-        
-        plot_defect_selection(df_crt, m, def_mark_group, def_mark_group, colormap, gn, gl)
         
         ERF_limts = [0.7,0.8,0.85,0.9, 1]
         for i in range(len(ERF_limts)):
@@ -157,21 +186,82 @@ def plot_map(Inspection, name='', plot_joint=True, plot_defects=True, ERF_min=0.
                 critic = (Inspection.df_Def["ERF"] > erf0) 
                 n_selection = sum(critic)
                 print('N selection: ', n_selection, ' for ERF> ', erf0 )
-                defcts_groups = folium.FeatureGroup(name=f"Critical Defects: {erf0:.02f} < ERF  ({n_selection})", show=False).add_to(m)
+                defcts_groups = folium.FeatureGroup(name=f"Defects: {erf0:.02f} < ERF  ({n_selection})", show=False).add_to(m)
                 
             else:
                 erf1 = ERF_limts[i+1]
                 critic = (Inspection.df_Def["ERF"] > erf0) & (Inspection.df_Def["ERF"] < erf1)
                 n_selection = sum(critic)
                 print('N selection: ', n_selection , ' for ERF> ', erf0, ' < ', erf1 )
-                defcts_groups = folium.FeatureGroup(name=f"Critical Defects: {erf0:.02f} < ERF < {erf1:.02f} ({n_selection})", show=False).add_to(m)
+                defcts_groups = folium.FeatureGroup(name=f"Defects: {erf0:.02f} < ERF < {erf1:.02f} ({n_selection})", show=False).add_to(m)
             
             if n_selection<max_number_of_features_shown:
                 df_crt = Inspection.df_Def.loc[critic].copy()
                 # def_ERF_groups = folium.FeatureGroup(name="ERF Critical Defect").add_to(m)
                 plot_defect_selection(df_crt, m, defcts_groups, defcts_groups, colormap, gn, gl)
                 
+        #################################################################
+        #################################################################
+        # Critical DEFECTS assessment
+        critic = (Inspection.df_Def["ERF"] > ERF_crt) & (Inspection.df_Def["d"] > d_min)
         
+        n_selection = sum(critic)
+        def_mark_group = folium.FeatureGroup(name=f"Critical Defects: ERF > {ERF_crt:.02f}  ({n_selection})").add_to(m)
+        print('N critic: ', n_selection)
+        # def_ERF_group = folium.FeatureGroup(name="ERF Critical Defect").add_to(m)
+        
+        df_crt = Inspection.df_Def.loc[critic].copy()        
+        plot_defect_selection(df_crt, m, def_mark_group, def_mark_group, colormap, gn, gl)
+                
+        #################################################################
+        #Isolated Defects
+        critic = (Inspection.df_Def.Single_idx > 0)
+        df_crt = Inspection.df_Def.loc[critic].copy()
+        mn_erf =  np.min ([ np.mean (df_crt["ERF"] ), ERF_min])
+        mx_erf = np.max (df_crt["ERF"] )
+        ERF_crt = np.min ( [np.round((mx_erf+mn_erf)/2,2), 0.9])
+        critic = (df_crt["ERF"] > ERF_crt)
+        n_selection = sum(critic)
+        def_mark_group = folium.FeatureGroup(name=f"Critical Isolated Defects: ERF > {ERF_crt:.02f}  ({n_selection})", show=False).add_to(m)
+        print('N critic: ', n_selection)
+        df_crt = df_crt.loc[critic].copy()
+        plot_defect_selection(df_crt, m, def_mark_group, def_mark_group, colormap, gn, gl)
+        
+        
+        #################################################################
+        #Cluster Defects
+        critic = (Inspection.df_Def.Single_idx == 0)
+        df_crt = Inspection.df_Def.loc[critic].copy()
+        mn_erf =  np.min ([ np.mean (df_crt["ERF"] ), ERF_min])
+        mx_erf = np.max (df_crt["ERF"] )
+        ERF_crt = np.min ( [np.round((mx_erf+mn_erf)/2,2), 0.9])
+        critic = (df_crt["ERF"] > ERF_crt)
+        n_selection = sum(critic)
+        def_mark_group = folium.FeatureGroup(name=f"Critical Cluster Defects: ERF > {ERF_crt:.02f}  ({n_selection})", show=False).add_to(m)
+        print('N critic: ', n_selection)
+        df_crt = df_crt.loc[critic].copy()
+        plot_defect_selection(df_crt, m, def_mark_group, def_mark_group, colormap, gn, gl)
+        
+        
+        #################################################################
+        #Cluster Defects:  Level 2 
+        def_mark_group = folium.FeatureGroup(name=f"Critical Cluster Defects: Level 2 assessment ERF > {ERF_crt:.02f}  ({n_selection})", show=False).add_to(m)
+        plot_defect_selection(df_crt, m, def_mark_group, def_mark_group, colormap, gn, gl, level=2, shift_num  = 0.0002)
+        
+        
+        #################################################################
+        #Defects:  Reliability Analysis
+        critic = (Inspection.df_Def.PF_form > 0)
+        df_crt = Inspection.df_Def.loc[critic]
+        mn_PF =  np.min ([ np.mean (df_crt["PF_form"] ), PF_crit])
+        mx_PF = np.max (df_crt["PF_form"] )
+        PF_crt2 = np.min ( [(mx_PF+mn_PF)/2, PF_crit])
+        critic = (df_crt["PF_form"] > PF_crt2)
+        n_selection = sum(critic)
+        def_mark_group = folium.FeatureGroup(name=f"Critical Defects: Prob. Failure > {PF_crt2}  ({n_selection})", show=False).add_to(m)
+        print('N critic: ', n_selection, f'Prob. Failure > {PF_crt2}  ({n_selection})')
+        df_crt = df_crt.loc[critic]
+        plot_defect_selection(df_crt, m, def_mark_group, def_mark_group, colormap, gn, gl, level=4, shift_num  = -0.0002)
         
         # df=Inspection.df_Def.copy().loc[critic]
         
@@ -182,7 +272,7 @@ def plot_map(Inspection, name='', plot_joint=True, plot_defects=True, ERF_min=0.
         
         colormap.add_to(m)
         
-        folium.LayerControl().add_to(m)
+        folium.LayerControl(position = 'topleft', collapsed = False, ).add_to(m)
         
         # https://python-visualization.github.io/folium/latest/user_guide/geojson/geojson_marker.html#Use-a-Circle-as-a-Marker
         # folium.GeoJson(
