@@ -42,7 +42,7 @@ class Inspection_data:
         
         ######################################
         # Gambiarra Não vem no Pipetally -> using UTM !!!!!!!!!!!
-        self.grid_letter=grid_letter
+        # self.grid_letter=grid_letter
         ######################################
     
     def Tally_read(self, i=0,  XY0=[], debugon = False):
@@ -61,25 +61,46 @@ class Inspection_data:
         
         print(spreadsheet_name)
         
-        if debugon: print("Raw Data Frame size: ",sys.getsizeof(df))
+        print("Raw Data Frame size: ",sys.getsizeof(df))
         df=itools.skp_header(df,debugon)
-        print("New Raw Data Frame size: ",sys.getsizeof(df))
-        if debugon: print("Columns = ",df.columns.values)
+        print("No header Raw Data Frame size: ",sys.getsizeof(df))
+        # if debugon: print("Columns = ",df.columns.values)
         
         Labels = df.columns.values
-        col_names, Corrosion_comment = itools.get_spreadsheet_labels(Labels)
-        if debugon: print("Columns setted = ",col_names)
-        df_Def, i_def, df_joints, i_joints, col_names, df, XY0 = itools.pre_proc_df(df,col_names, Corrosion_comment,XY0)
+        # if debugon: print("Original Columns = ",Labels)
+        col_names, Corrosion_comment = itools.get_spreadsheet_labels(Labels, debugon)
         
+        #########################################
+        # Check Columns driven 
+        common_indices = [i for i, val in enumerate(col_names) if val not in Labels]
+        if len(common_indices) > 0:
+            print('Colums missing: ', common_indices)
+            print('Colums not founnd: ', [col_names[i] for i in common_indices])
+            
+            if debugon: print("Columns getted = ",col_names)
+        else:
+            print('Colums not find: none ', common_indices)
+        
+        no_needed_col = [val for val in Labels if val not in col_names]
+        
+        if debugon: print('000000000 df = ', df.columns)
+        df = df.drop(no_needed_col, axis=1)
+        
+        if debugon: print('filtrated df = ', df.columns)
+        
+        # no_needed_col = [i for i, val in enumerate(col_names) if val not in Labels]
+            
+        df_Def, i_def, df_joints, i_joints, col_names, XY0, df_Others = itools.pre_proc_df(df,col_names, Corrosion_comment,XY0, debugon)
         
         # self.df_General = df
         self.df_Def = df_Def
+        self.df_Others = df_Others
         self.i_def = i_def
         self.df_joints = df_joints
         self.i_joints = i_joints
         self.t0 = np.min(df_joints.t.values)
-        if debugon: print("DFjoint size: ",sys.getsizeof(df_joints))
-        if debugon: print("DFml size: ",sys.getsizeof(df_Def))
+        if debugon: print("DFjoint eof size: ",sys.getsizeof(df_joints))
+        if debugon: print("DF ML eof size: ",sys.getsizeof(df_Def))
         
         # depth_name, def_len_name , def_w_name,t_name , Y_name , X_name  ,H_name , gridzone_name , tube_num_name , tube_len_name , weld_dist_name , Z_pos_name , circ_pos_name , surf_pos_name , ERF_name , feature_name = col_names 
         
@@ -124,15 +145,16 @@ class Inspection_data:
             try:
                 new_rows = {'defs': idx, 'd': clstr_d, 'L': cluster_size[k][0], 'W': cluster_size[k][1], 't': clstr_t, 'Z_pos': cluster_size[k][2], 'clock_pos': cluster_size[k][3], 'Cluster #': k+1, 'Cluster defects': len(ic)}
             except:
-                print(k, len(cluster), len(cluster_size), clstr_d,  cluster_size[k-1])
+                if debugon: print(k, len(cluster), len(cluster_size), clstr_d,  cluster_size[k-1])
             
             cluster_list.append(new_rows)
-            
+        
         # df_cluster = self.df_Def.loc[self.df_Def['Cluster #'] != 0]
         # Append all rows at once
         # print(k, len(cluster), len(cluster_size), clstr_d,  cluster_size[k-1])
         df_cluster = pd.concat([df_cluster, pd.DataFrame(cluster_list)], ignore_index=True)
         self.df_cluster = df_cluster 
+        if debugon: print('df_cluster size: ', len(df_cluster))
         #############################################
         
     def Future_def(self, Dates, dt, debugon = False):
@@ -175,6 +197,7 @@ class Inspection_data:
         # d  = dp*t
         
         if (def_type.lower()=='single'):
+            
             MSOP = itools.comput_MSOP(D,sige,sigu,F,ts,dp,Ls, unit = 'MPa', method=analysis_type)
             
             self.df_Def['MSOP'] = MSOP
@@ -188,6 +211,7 @@ class Inspection_data:
             
         elif (def_type.lower()=='cluster'):
             # print(*pipe_data) 
+            
             MSOP, ii = itools.EffArea_clusters(D,sige,sigu, F, cluster_details, unit = 'MPa')
             print('len MSOP',len(MSOP) )
             # print(ii)
@@ -207,24 +231,6 @@ class Inspection_data:
         # MSOP = itools.comput_MSOP(D,t,dp,L,sige,sigu, unit = 'MPa', method=analysis_type)
         
         
-    def xxxCluster_Def_EA(self, cluster_details, analysis_type = sempiric.effective_area):
-                
-        
-        df=self.df_Def
-        MAOP = self.MAOP
-        sige = self.sige
-        sigu = self.sigu
-        # Meters
-        D  = self.OD/1000
-        L  = df.L.values/1000
-        t  = df.t.values/1000
-        
-        dp = df.d.values/100 # dp(%)
-        # d  = dp*t
-        MSOP = itools.EffArea_clusters(D,t,dp,L,sige,sigu,cluster_details, unit = 'MPa')
-        
-        
-        
     def reliability_analysis(self, semi_empiric = sempiric.modifiedb31g):
         self.MPP=[]
         MAOP = self.MAOP
@@ -242,7 +248,7 @@ class Inspection_data:
         D    = self.OD/1000
         L    = self.df_Def.L.values/1000
         t    = self.df_Def.t.values/1000
-        dp   = self.df_Def.d.values/100
+        dp   = self.df_Def.d.values/100 # dp(%) -> 0.5
         # d    = dp*t
         Ndef = len(dp)
         idx=self.df_Def.index
@@ -283,9 +289,9 @@ class Inspection_data:
         N0 = 0
         i=0
         for rf in ERFs:
-            print(i,rf)
+            # print(i,rf)
             Nt = sum(self.df_Def.ERF<rf)
-            print(i,Nt)
+            # print(i,Nt)
             if i==0:
                 ERF_dist.append({'N': Nt-N0 ,
                             'ERF': 'ERF <'+str(ERFs[i]),

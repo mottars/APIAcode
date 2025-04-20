@@ -37,7 +37,7 @@ def skp_header(df, debugon = False):
                 if debugon: print("Start_row = ",ind)
                 break
         df.columns = df.iloc[strt_row]
-        if debugon: print("Columns = ",df.columns)
+        if debugon: print("Starting Columns = ",df.columns.values)
     
         # Drop rows above the start_row
         df = df.iloc[strt_row + 1:].reset_index(drop=True)
@@ -61,8 +61,8 @@ def get_spreadsheet_labels(Labels, debugon = False):
     #################################################
     # Find those automatically ???
     
-    if debugon: print("Columns = ",Labels)
     if debugon: print("Columns type = ",Labels[0])
+    
     if Labels[0].lower() == 'log dist. [m]'.lower():
         # 2006
         depth_col = 'depth [%]'
@@ -173,23 +173,25 @@ def get_spreadsheet_labels(Labels, debugon = False):
         t_col = 'Esp.\n(mm)'
         
         #Georeferencing
-        Y_col = 'Northing\n(m)'
-        X_col = 'Easting\n(m)'
-        H_col = 'Height\n(m)'
+        Y_col = 'Northing'
+        X_col = 'Easting'
+        # H_col = 'Heigth'
+        H_col = 'Height'
         gridzone_col = 'Zone'
         
         #Pipe position
         tube_num_col = 'ID Junta\nAnterior'
         tube_len_col = 'Compr.\nTubo\n(m)'
-        weld_dist_col = 'Dist. Sld.\nAnt.\n(m)'
+        # weld_dist_col = 'Dist. Sld.\nAnt.\n(m)'
+        weld_dist_col = 'Dist. a\nSld. Ant.\n(m)'
         Z_pos_col = 'Posição\n(m)'
-        circ_pos_col = 'Posição\nHorária\n(hh:mm)'
+        circ_pos_col = 'Posição\nHorária'
         surf_pos_col = 'I/E'
         
         #Others
-        ERF_col = 'ERF'
+        ERF_col = 'ERF\nB31G\nModificada'
         feature_col = 'Descrição'
-        Corrosion_comment = ['CORR']
+        Corrosion_comment = ['CORR', 'ASLO']
         
     else:
         print('set columns', Labels)
@@ -256,7 +258,7 @@ def plot_clusters(cluster_details,id_cluster):
     plt.ylabel('Wall tickness (mm)')
     plt.title('Cluster Defect ID:'+ str(id_cluster))
 
-def pre_proc_df(df,col_names, Corrosion_comment,XY0=[], debug_on = False):
+def pre_proc_df(df,col_names, Corrosion_comment,XY0=[], debugon = False):
     
     # 1 - Rename columns name for predifined ones
     # 2 - Filing blank spaces (NaN): tube number, thicks, tube_len.
@@ -265,44 +267,73 @@ def pre_proc_df(df,col_names, Corrosion_comment,XY0=[], debug_on = False):
     #  3.1- Convert oclock position in degree
     #  3.2- Filter predefined Corrosion Comments Only!
     #################################################
-      
+    
     #################################################
-    # 1 - Rename Columns    
+    # In[0]: 0 - Drop duplicated columns (yes, this happens!!)
+    n_duplicat = df.columns.duplicated().sum()
+    print('number of duplicated columns names: ', n_duplicat)
+    if n_duplicat :
+        print('Duplicated columns names: ', df.columns[df.columns.duplicated()])
+        df = df.loc[:, ~df.columns.duplicated(keep='first')]
+    #################################################
+    # In[1]: 1 - Rename Columns    
     # Standard Names
     standard_col_names = ['d', 'L', 'W', 't', 'X', 'Y', 'H', 'gridzone', 'tube_num', 'tube_len', 'ref_dist', 'Z_pos', 'clock_pos', 'surf_pos', 'ERF', 'feature']
     for i in range(len(col_names)):
+        
         df=df.rename(columns={col_names[i]: standard_col_names[i]})
     
     col_names = standard_col_names
     depth_col, def_len_col , def_w_col,t_col , X_col  ,Y_col , H_col , gridzone_col , tube_num_col , tube_len_col , weld_dist_col , Z_pos_col , circ_pos_col , surf_pos_col , ERF_col , feature_col = col_names 
     
-    
-    # Nao lembro pra q!!!!!!!!!!!
+    if debugon: print('new columns: ',df.columns)
+
+    # In[1.1]: Convert string to numbers in numeric columns (numerical_cols)
     numerical_cols = ['d', 'L', 'W', 't', 'X', 'Y', 'H', 'tube_num', 'tube_len', 'ref_dist', 'Z_pos', 'ERF']
+    print('numeric columns in string, Z position: ',df.Z_pos.iloc[-1])
+    # print(df[numerical_cols])
+    for ncol in numerical_cols:
+        # df[ncol] = df[ncol].str.replace(',', '.', regex=False)
+        df[ncol] = (
+            df[ncol].astype(str) # make sure it is a string (maybe not needed and undesire robustness)
+            .str.replace(r'\.(?=\d{3},)', '', regex=True)  # remove dot *only* if it's before 3 digits + comma
+            .str.replace(',', '.', regex=False)            # replace comma with dot
+        )
+        
     df[numerical_cols] = df[numerical_cols].apply(pd.to_numeric, errors='coerce')
+    print('Numbers of entries in the Pipe Tally not converted to numeric values: ', df.X.isna().sum(),'/', len(df))
+    print('Numbers of anomalies (depths) in the Pipe Tally converted to numeric values: ', df.d.notna().sum(), df.d.count())
+    # print(df.X.to_numeric)
+    print('numeric columns converted, Z position: ',df.Z_pos.iloc[-1])
+    # print(df[numerical_cols])
     
     df = df.dropna(subset='X')
+    print('Remaing Numbers of entries in the Pipe Tally: ', len(df))
     
     # Gambiarra!!!!!
-    if not gridzone_col in df.columns:
-        df[gridzone_col]=22
-        
-    # print('df Filtrate = ')
-    # print(df[col_names])
+    if debugon: print (gridzone_col in df.columns, gridzone_col , ' in ', df.columns)
     
+    [gn,gl,noletter] = gridzone_set(df.gridzone.iloc,'')
+    
+    df['gridzone_n'] = gn
+    df['gridzone_l'] = gl
+    
+    # if not gridzone_col in df.columns:
+    #     print('GAMBIARRA !!!! \|/')
+    #     print('Check gridzone letter and number (inspection_tool.py 306)')
+    #     df[gridzone_col]=22
     
     #################################################
+    # In[2]:
     # Create S position (absolut in-line length) xxxxxxxxxxxx
     # Filing blank spaces (with NaN): tube number, thicks, tube_len.
     #################################################
     #Add real positions S
     n_df = len(df)
     
-    if len(XY0)==0: XY0 = [df.X.iloc[0],df.Y.iloc[0], df.H.iloc[0]]
-    
-    X = list(df.X)
-    Y = list(df.Y)
-    Z = list(df.H)
+    X = df.X.to_numpy()
+    Y = df.Y.to_numpy()
+    Z = df.H.to_numpy()
     
     ###########################################################
     # Computing S position
@@ -311,6 +342,8 @@ def pre_proc_df(df,col_names, Corrosion_comment,XY0=[], debug_on = False):
     current_tub_len = 0
     current_t = 0
     joint_pos=[]
+    
+    if len(XY0)==0: XY0 = [X[0],Y[0], Z[0]]
     section_len[0] = ((X[0]-XY0[0])**2+(Y[0]-XY0[1])**2+(Z[0]-XY0[2])**2)**.5
     current_tube_num = 0
     # j0=0
@@ -327,14 +360,14 @@ def pre_proc_df(df,col_names, Corrosion_comment,XY0=[], debug_on = False):
             #     df.loc[j,tube_num_col] = df.tube_num[j0]
             #     df.loc[j,tube_len_col] = df.tube_len[j0]
             if df.tube_num[j] != current_tube_num:
-                if ~np.isnan(pd.to_numeric(df.tube_num[j])):
+                if not pd.isna(pd.to_numeric(df.tube_num[j], errors='coerce')):
                     current_tube_num = df.tube_num[j]
                     joint_pos.append(j)
                     # j0 = j
             
         
         # Filling tube number
-        if ~np.isnan(df.tube_len[j]):
+        if not pd.isna(df.tube_len[j]):
             # joint_pos.append(j)
             current_tub_num = df.tube_num[j]
             current_tub_len = df.tube_len[j]
@@ -350,7 +383,7 @@ def pre_proc_df(df,col_names, Corrosion_comment,XY0=[], debug_on = False):
             # print(current_tub_len)
 
         # Filling Thicks
-        if ~np.isnan(df[t_col][j]):
+        if not pd.isna(df[t_col][j]):
             current_t = df[t_col][j]
             
         else:
@@ -363,14 +396,15 @@ def pre_proc_df(df,col_names, Corrosion_comment,XY0=[], debug_on = False):
     ###########################################################
 
     ###########################################################
-    ## Filtering ML (Metal Loss) data frame
+    # In[3]:
+    ## Filtering ML (Metal Loss) data frame df_Def
     
-    df.d = pd.to_numeric(df.d, errors='coerce')
+    # df.d = pd.to_numeric(df.d, errors='coerce')  already transformed
     df_Def = df.dropna(subset='d')
     
     # df_Def=df.drop(df[np.isnan(df.d)].index)
     
-    # if debug_on:
+    # if debugon:
     plt.figure()
     features_count=Counter(df_Def[feature_col])
     # print(features_count)
@@ -385,12 +419,12 @@ def pre_proc_df(df,col_names, Corrosion_comment,XY0=[], debug_on = False):
     # plt.figure()
     # plt.hist(df_Def[feature_col])
     
-    
     ########## Filter predefined Corrosion Only!
     #df_Def['is_corrosion'] = df_Def[feature_col].apply(lambda x: x==Corrosion_comment[0])
     
-    criterion = df_Def[feature_col].map(lambda x: any(small_str in x for small_str in Corrosion_comment)) 
-    df_Def=df_Def[criterion]
+    criteria = df_Def[feature_col].map(lambda x: any(small_str in x for small_str in Corrosion_comment)) 
+    df_Others = df_Def[~criteria]
+    df_Def=df_Def[criteria]
     ###########################################################
 
     
@@ -430,14 +464,14 @@ def pre_proc_df(df,col_names, Corrosion_comment,XY0=[], debug_on = False):
     #df_joints=df.drop(df[np.isnan(df.tube_len)].index)
     df_joints = df.loc[joint_pos]
 
-    joint_items = ['S_pos', Y_col , X_col  ,H_col , gridzone_col, t_col, tube_num_col , tube_len_col , Z_pos_col , feature_col ]
+    joint_items = ['S_pos', Y_col , X_col  ,H_col , 'gridzone_n', 'gridzone_l', t_col, tube_num_col , tube_len_col , Z_pos_col , feature_col ]
     df_joints=df_joints.filter(items=joint_items)
     
     
     # df.d = pd.to_numeric(df.d, errors='coerce')
     
-    i_joints = list(df[(~np.isnan(df.tube_num))].index)
-    if debugon: print('colums: ', df_joints.columns.values)    
+    i_joints = list(df[(~pd.isna(df.tube_num))].index)
+    if debugon: print('joint df colums: ', df_joints.columns.values)    
     
     i_def = list(df[(~np.isnan(df.d))].index)
     if debugon: print('def cases: ',len(i_def))
@@ -447,9 +481,9 @@ def pre_proc_df(df,col_names, Corrosion_comment,XY0=[], debug_on = False):
     # select_col = df[depth_col,def_len_col, def_w_col, t_col, ]
     # print("SINTETIC VALUES d*1, L*1.")
 
-    return df_Def, i_def, df_joints, i_joints, col_names, df, XY0
+    return df_Def, i_def, df_joints, i_joints, col_names, XY0, df_Others
     
-
+# In[others functions?]:
 def matching(Insps, ij=[0,1], debugon = False):
 
 
@@ -676,7 +710,7 @@ def find_clusters(df_Def, D, debugon):
     #Interacting Defec (find clusters)
     # Using meters and rad/2
     # D = Inspection[-1].OD/1000
-    
+    if debugon: print('finding clusters... ')
     n_def = len(df_Def)
     colony_def = np.zeros(n_def)
     cluster = []
@@ -750,30 +784,9 @@ def find_clusters(df_Def, D, debugon):
         elif started_colony:
             started_colony = False
             
+    if debugon: print('find_clusters: ', cluster[-1], len(cluster))
     return cluster , colony_def, cluster_size
 #################################################################
-
-##################################################
-# ver sempiric.inverse_modifiedb31g
-def xxxxxxxxxxxxdef_critical_limits(dp,t,D,sige, MAOP):
-    # ASME B31g based
-    
-    a = 2/3*dp
-    P0 = 1.1*sige*2*t/D*10 *.72
-    
-    R = MAOP/P0
-    
-    #P0 * (1-amin) = MAOP
-    #amin = 1 - R = 2/3*dp_max
-    dp_max = (1 - R)*3/2 # (%)
-    #dp_max-dp
-    idx = np.where(dp> dp_max*1.2)
-    M1 = R*0
-    M1[idx]=R[idx]*a[idx]/(R[idx] - 1 + a[idx])
-    Llim = R*np.NaN
-    Llim[idx] = np.sqrt((M1[idx]**2 -1)*D*t[idx]/.8)
-    
-    return dp_max, Llim
 
 
 #####################################
@@ -814,11 +827,11 @@ def EffArea_clusters(D,sige,sigu, F, cluster_details, unit = 'MPa'):
     PF = []
     ii=[]
     n_cluster = cluster_details.id.size
-    print('n_cluster',n_cluster)
+    print('n_clusters:',n_cluster)
     print('cluster_details.id',cluster_details.id)
     
     if n_cluster == 1:
-        print(cluster_details)
+        # print(cluster_details)
         Ls = cluster_details.L[0]/1000
         t = cluster_details.t[0]/1000
         ds = cluster_details.d[0]/100
@@ -877,16 +890,18 @@ def EffArea_clusters(D,sige,sigu, F, cluster_details, unit = 'MPa'):
     # print('PF = ', PF)
     return np.array(PF), ii
     
-def  gridzone_set(gridzone, grid_l):
+def  gridzone_set(gridzones, grid_l):
 
 
-    g = gridzone
-    gl=''
-    if isinstance(g, str):
-        gn = ''.join([char for char in g if char.isdigit()])
-        gl = ''.join([char for char in g if char.isalpha()])
+    gn = []
+    gl= []
+    if any(isinstance(gi, str) for gi in gridzones):
+        for gi in gridzones:
+            gn.append(int(''.join([char for char in gi if char.isdigit()])))
+            gl.append(''.join([char for char in gi if char.isalpha()]))
     else:
-        gn = g
+        gn = gridzones
+        gl = ''
     
     get_gl = (gl == '')
     
@@ -964,6 +979,7 @@ def grafical_DF(Inspection, XY0=[], min_joint_dist = 0.5):
     dfg['Long. dist [km]'] = Inspection.df_Def.Z_pos/1000
     
     dfg['Depth[%]'] = Inspection.df_Def.d
+    dfg['Feature'] = Inspection.df_Def.feature
     
     # time = perc_to_time(Inspection.df_Def.clock_pos)
     # dfg['Clock Position'] = time
@@ -979,8 +995,9 @@ def grafical_DF(Inspection, XY0=[], min_joint_dist = 0.5):
     # dfg['Surface Position'] = Inspection.df_Def.d
     
     
-    dfg['beta'] = Inspection.df_Def['beta']
-    dfg['PF'] = Inspection.df_Def['PF_form']
+    if 'PF_form' in Inspection.df_Def.columns:
+        dfg['beta'] = Inspection.df_Def['beta']
+        dfg['PF'] = Inspection.df_Def['PF_form']
     
     dfg['Max Safety d [%]'] = Inspection.df_Def['Max Safety d [%]']
     dfg['Critical Length '] = Inspection.df_Def['L max']
@@ -1282,3 +1299,63 @@ def plot_cluster(df_cluster):
     plt.subplots_adjust(top=0.85)  # Increase top margin for title
     plt.savefig('Defects_Clusters_Level 2.png', dpi=300, bbox_inches='tight' )
 
+# itools.plot_seab_prob(Insps, col_names,ij, planar_plot = planar_plot, longi_plot = longi_plot )
+def plot_seab_prob(Inspection,  col_names,ij =[0,1], XY0=[],  planar_plot = 1, longi_plot = 0, level2_plot=1):
+    
+
+    i=ij[-1]
+        
+    plt.figure()
+    plt.hist(Inspection[0].df_Def.d)
+    plt.xlabel('Defects depths [%]')
+    plt.ylabel('Frequency')
+    
+    
+    dfg=Inspection[i].dfg
+    
+    #############################################
+    
+    Xpl = Inspection[0].df_joints.X 
+    Ypl = Inspection[0].df_joints.Y 
+    
+    sns.set_style(style="white")
+    # palt=sns.color_palette("flare")
+    # sns.set(style="white", color_codes=True)
+    
+    # Setting ColorMap (from matplotlib)
+    # https://matplotlib.org/stable/tutorials/colors/colormaps.html
+    cmap = mcm.jet
+    # cmap = mpl.cm.rainbow
+    # cmap = mpl.cm.nipy_spectral_r
+    
+    fig_size = 4 #[3 to 8]
+    
+# Plot 
+
+        # dfg['beta'] = Inspection.df_Def['beta']
+        # dfg['PF'] = Inspection.df_Def['PF_form']
+
+    if planar_plot:
+        ax=sns.relplot(x="Easting", y="Northing", size ="Depth[%]", hue ="PF",
+                sizes=(fig_size*6, fig_size*80), alpha=.5, palette=cmap, edgecolor=None,  style = 'Feature',
+                height=fig_size*1.5, data=dfg )
+        plt.plot(Xpl, Ypl)
+        sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
+        plt.tight_layout()
+        plt.savefig('Geo_PF.png', dpi=300, bbox_inches='tight')
+    
+    if longi_plot:
+        ax=sns.relplot(x='Long. dist [km]', y='beta', hue ='Depth[%]', size ="length [mm]",
+                sizes=(fig_size*6, fig_size*80), alpha=.7, edgecolor=None,  palette=cmap , style = 'Feature',
+                height=fig_size, data=dfg, aspect =1.5 )
+        # plt.plot(dfg['Long. dist [km]'],dfg['ERF']*0+1,linewidth=2)
+        sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
+        plt.tight_layout()
+        plt.savefig('LongDist_PF.png', dpi=300, bbox_inches='tight')
+    
+    ax=sns.relplot(x="beta", y="ERF", hue ='Depth[%]', size ="length [mm]",
+        sizes=(fig_size*6, fig_size*80), alpha=.5, palette=cmap, edgecolor=None, style = 'Feature',
+        height=fig_size*1.5, data=dfg )
+    sns.move_legend(ax, "upper right" , bbox_to_anchor=(1, 1))
+    plt.tight_layout()
+    plt.savefig('Beta_x_ERF.png', dpi=300, bbox_inches='tight')

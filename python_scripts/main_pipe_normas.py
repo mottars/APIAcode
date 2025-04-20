@@ -61,7 +61,7 @@ def dnv_complex_PartA(data,D,t,StD,eps_d,gamma_d,gamma_m):
     print('Material Remanescente Inspeção [mm^2]: '+str(remainMat))
     l_total=(data[-1,0]-data[0,0])
     A=(t*l_total-remainMat)
-    print(A)
+    # print(A)
     #Definir
     f_u=1
     #Step 1
@@ -287,7 +287,7 @@ def inverse_modifiedb31g(D, sige, sigu, t, L, d,  pf, thicks=0):
         P0 = sflow * ((2 * t) / D)
         z = L**2 / (D * t)
         
-        print (z)
+        # print (z)
         M = np.where(z > 50, 
                      0.032 * z + 3.3,
                      (1 + 0.6275 * z - 0.003375 * (z**2))**0.5)
@@ -299,10 +299,10 @@ def inverse_modifiedb31g(D, sige, sigu, t, L, d,  pf, thicks=0):
         # Let's denote A = pf / P0
         R = pf / P0
         
-        print(M,R)
+        # print(M,R)
         # Now, solve for Q:
         Q = (R - 1) / (R / M - 1)
-        print(Q)
+        # print(Q)
         d_max = (Q * t) / 0.85
         d_max = np.where(d_max>t, t, d_max)
         

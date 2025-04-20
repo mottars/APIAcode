@@ -44,7 +44,9 @@ test_Z = 0
 relib_ana=1
 Run_compare_ERF_ProbF=0
 
-surce_dir = os.curdir+os.sep+'Files'
+debugon =  not True
+# debugon = False
+surce_dir = os.curdir+os.sep+'Files'+os.sep+'Pipeway_SP'
 
 # spreadsheet_namesi = ['PEN-SCA 2006 resumo.csv',
 #                     'PEN-SCA 2014 resumo.csv',
@@ -56,14 +58,20 @@ surce_dir = os.curdir+os.sep+'Files'
 # dates = datesi[2:3]
 
 # spreadsheet_names = ['Apendice_F_redz.xlsx']
-spreadsheet_names = ['Apendice_F.xlsx']
-dates = [2024]
+
+# Pipeflaw -> simP
+# spreadsheet_names = ['I-RL-4710.02-6521-973-RAX-004_R0_F00001-587-02.XLS','Lists.xlsx', 'Apendice_A.xlsx']
+# dates = [2010,2017,2023]
+spreadsheet_names = ['Apendice_A.xlsx']
+# spreadsheet_names = ['Apendice_Aredzd.xlsx']
+dates = [2023]
 
 #mm
 OD = 14*25.4
 
+XY0 = []
 
-grid_letter='K'
+# grid_letter='K'
 sige = 323.412
 sigu = 442.934
 MAOP = 7.97
@@ -78,6 +86,8 @@ min_CGR = 0.1
 max_CGR = 1.2
 
 
+n_inp = len(spreadsheet_names)
+ij = range(n_inp)
 if plot_match:
     # future assessment 
     dt = 5 # years
@@ -88,10 +98,10 @@ else:
     if isinstance(dates,list):
         ij=range(len(dates))
     else:
+        dates = [dates]
         ij=[0]
+
     
-debugon = True
-XY0 = []
 
 # class struct_data:
 #         pass
@@ -113,7 +123,7 @@ for i_insp in range(n_inp):
             
     #def __init__(self, file_name, date, OD, surce_dir='',future=False, grid_letter='J', sige = 485, sigu = 565, MAOP = 10, Insp_type = 'MFL',Confid_level=0.85, Accuracy=0.1, acc_rel = 0.05):
     Inspi = PI.Inspection_data(spreadsheet_names[i_insp], dates[i_insp], OD, surce_dir, 
-                         grid_letter=grid_letter, 
+                         # grid_letter=grid_letter, 
                          sige = sige, sigu = sigu, 
                          MAOP = MAOP, 
                          F = F,
@@ -125,21 +135,17 @@ for i_insp in range(n_inp):
 
 print('N of defects\date: ', [[len(i.df_Def), i.date] for i in Insps])
 # depth_name, def_len_name , def_w_name,t_name , Y_name , X_name  ,H_name , gridzone_name , tube_num_name , tube_len_name , weld_dist_name , Z_pos_name , circ_pos_name , surf_pos_name , ERF_name , feature_name = col_names
-df_Def = Inspi.df_Def
-if debugon: print('UTM coordinate: ', df_Def.gridzone.iloc[0], ' S ',df_Def.X.iloc[0], df_Def.Y.iloc[0])
 
-
-
+if debugon:
+    df_Def = Inspi.df_Def
+    print('UTM coordinate: ', df_Def.gridzone.iloc[0], df_Def.gridzone_n.iloc[0], df_Def.gridzone_l.iloc[0], ' X,Y =  ',df_Def.X.iloc[0], df_Def.Y.iloc[0])
 
 ##########################################################################
 Insps[-1].barlow_eq()
 
-
 ##########################################################################
 # Cluster Identification for last inspection
 Insps[-1].Identify_Cluster( col_names , debugon = debugon)
-
-
 
 ##########################################################################
 # def insert_cluster_rows()
@@ -202,6 +208,12 @@ for i in range(len(Insps[-1].df_cluster)):
 # Insps[-1].df_cluster = pd.concat(df_clstr)
 # Insps[-1].df_def = df
 Insps[-1].df_Def = pd.concat([Insps[-1].df_Def,pd.concat(df_clstr)])
+
+print('Clusters included in df_Def, new size = ', len(Insps[-1].df_Def ))
+##########################################################################
+
+
+
 if plot_match:
     ##########################################################################
     # Matching procedure (between "ij" inspection)
@@ -229,6 +241,7 @@ if plot_match:
 ##########################################################################
 # Defects Assessment 
 ##########################################################################
+print('Single defects (Level 1) assessment....')
 for i in Insps:
     i.Defects_Analysis(analysis_type = sempiric.modifiedb31g)
 
@@ -236,13 +249,9 @@ for i in Insps:
 ##########################################################################
 # Cluster Defects Assessment via Effective Area
 ##########################################################################
+print('Cluster defects (Level 2) assessment....')
 for i in Insps:
     i.Defects_Analysis(def_type = 'cluster', cluster_details=cluster_details)
-
-##############
-# MAPs
-if Plot_Map:
-    [m,df_crt] = GIM.plot_map(Insps[-1],'Pipe_Map_PipeWay', d_min=30)
 
 ############################################################
 # Reliability Analysis
@@ -251,15 +260,24 @@ if relib_ana==1:
     
     n_Insps = len(Insps)
     for inspi in Insps:
+        print('Running Form... ')
         inspi.reliability_analysis()
-        print('Form convergence problems?:')
-        print(np.sum(np.isnan(inspi.df_Def['beta'])))
-    
+        print('Number of Form results: ', inspi.df_Def['beta'].count())
+        print('Form convergence problems: beta = nan')
+        print(inspi.df_Def['beta'].isna().sum())
+        print(np.sum(np.isnan(inspi.df_Def['beta'].isna())))
+        beta0 = inspi.df_Def['beta'].copy()
+        beta0[beta0.isna()]=beta0.max()+1
+        plt.figure()
+        plt.xscale('log'), plt.plot(inspi.df_Def.PF_form,inspi.df_Def.ERF,marker='.', linewidth=0)
+        plt.figure()
+        plt.plot(beta0,inspi.df_Def.ERF,marker='.', linewidth=0)
     if Run_compare_ERF_ProbF==1:
         itools.compare_ERF_ProbF(Insps)
 ############################################################
-# User Frendly Data Frame
 
+# User Frendly Data Frame
+print('grafical_DF saveing...')
 for ii in ij:
     dfg = itools.grafical_DF(Insps[ii])
     Insps[ii].dfg=dfg
@@ -270,10 +288,20 @@ for i in Insps:
     i.dfg.to_csv('./DataFrames/Defect_Assessment_DF_' + str(i.date) + '.csv')
     i.df_joints.to_csv('./DataFrames/Joints_Inspection_' + str(i.date) + '.csv')   
 
+
+##############
+# MAPs
+print('Creating iteractive Map .HTML')
+if Plot_Map:
+    [m,df_crt] = GIM.plot_map(Insps[-1],'Pipe_Map_PipeWay', d_min=30)
+
+
 #############################################
 # Tables
 Insps[-1].ERF_distrib_create()
 ##############
+
+
 
 #############################################
 # Printing Critical Defects: ERF>0.92
@@ -303,7 +331,10 @@ for cid in crt_details.id:
 if plot_seaborn:
     # plot_seaborns(Inspection,  col_names,ij =[0,1], XY0=[], min_joint_dist = 0.5):
     itools.plot_seaborns(Insps, col_names,ij,plot_match, planar_plot = planar_plot, longi_plot = longi_plot )
-    # print ("end")
+    
+    if relib_ana==1:
+        itools.plot_seab_prob(Insps, col_names,ij, planar_plot = planar_plot, longi_plot = longi_plot )
+        
 
 
 if plot_cluster:

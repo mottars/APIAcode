@@ -61,14 +61,15 @@ def FORM(M,RV_type,P,fun_G,*args):
         # Comput Gradient
         #[G1,dGdx]=feval(fun_G,X,f_par{:});
         # Finite Difference (dGdx)
+        X0 = X
         for i in range(nRV):
+            X = X0
             X[i] = X[i] + dx[i]
             
             # Compute Failure Function
             G1=fun_G(X,*args)
 
             dGdx[i] = (G1 - G)/dx[i]
-            X[i]=X[i]-dx[i]
 
         # print('dGdX')
         # print(dGdx)
@@ -99,10 +100,18 @@ def FORM(M,RV_type,P,fun_G,*args):
         # print('X')
         # print(X)
         if ii>max_iter:
+            print('max_iter !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+            print('ii, beta, G, X,Xr,M = ',ii, beta, G, X,Xr,M)
+            beta=np.nan
             break
         if ~isfinite(beta):
+            print('no finite beta !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+            print('ii, beta, G, X,Xr,M = ',ii, beta, G, X,Xr,M)
+            beta=np.nan
             break
         if ~isfinite(G):
+            print('no finite G !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+            print('ii, beta, G, X,Xr,M = ',ii, beta, G, X,Xr,M)
             beta=np.nan
             break
         
